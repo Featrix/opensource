@@ -1,0 +1,7 @@
+# prerequisites for development
+packaging
+pip
+pre-commit
+setuptools
+ruff
+pytest

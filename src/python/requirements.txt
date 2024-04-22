@@ -1,0 +1,8 @@
+pydantic[email]>=2.5.0
+pydantic_core>=2.14.5
+bson
+fastapi>=0.106.0
+pandas>=2.1.4
+psutil>=5.9.5
+requests>=2.31.0
+eval_type_backport; python_version < '3.10'

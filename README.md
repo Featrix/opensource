@@ -1,2 +1,3 @@
-# opensource
-Featrix Open Source
+# featrixclient
+
+Featrix Client Library

@@ -1,0 +1,310 @@
+#  -*- coding: utf-8 -*-
+#############################################################################
+#
+#  Copyright (c) 2024, Featrix, Inc. All rights reserved.
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"), to deal
+#  in the Software without restriction, including without limitation the rights
+#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#  copies of the Software, and to permit persons to whom the Software is
+#  furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in all
+#  copies or substantial portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#  SOFTWARE.
+#
+#
+#############################################################################
+#
+#  Yes, you can see this file, but Featrix, Inc. retains all rights.
+#
+#############################################################################
+from __future__ import annotations
+
+import warnings
+from collections import namedtuple
+
+import pydantic
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+
+from .models import Activity
+from .models import AllFieldsResponse
+from .models import ApiKeyAuthenticationRequest
+from .models import ApiKeyAuthResponse
+from .models import ApiKeyCreated
+from .models import ApiKeyEntry
+from .models import CreateDBArgs
+from .models import DBClusterArgs
+from .models import EmbeddingDistanceResponse
+from .models import EmbeddingSpace
+from .models import EmbeddingSpaceDeleteResponse
+from .models import EncodeRecordsArgs
+from .models import ESCreateArgs
+from .models import Feed
+from .models import FeedCreateArgs
+from .models import FeedWithEventCounts
+from .models import GuardRailsArgs
+from .models import Invitation
+from .models import InviteUserRequest
+from .models import JobDispatch
+from .models import JobMeta
+from .models import JobResults
+from .models import Model
+from .models import ModelCreateArgs
+from .models import ModelFastPredictionArgs
+from .models import ModelPredictionArgs
+from .models import NewNeuralFunctionArgs
+from .models import NNQueryArgs
+from .models import Organization
+from .models import Prediction
+from .models import Project
+from .models import ProjectAddMappingsRequest
+from .models import ProjectAssociateRequest
+from .models import ProjectCreateRequest
+from .models import ProjectIgnoreColsRequest
+from .models import TrainMoreArgs
+from .models import UpdatedResponse
+from .models import Upload
+from .models import UploadFetchUrlArgs
+from .models import User
+from .models import UserBrief
+
+Api = namedtuple("Api", ["url", "arg_type", "response_type", "list_response"])
+
+
+class ApiInfo(BaseModel):
+    info_get: Api = Api("/info/", None, dict, False)
+    users_get_all: Api = Api("/mosaic/users/", None, UserBrief, True)
+    users_get_user: Api = Api("/mosaic/users/{email}", None, User, False)
+    users_get_self: Api = Api("/mosaic/users/me/", None, User, False)
+    users_post_current_org: Api = Api(
+        "/users/me/current_organization", str, None, False
+    )
+    org_get_all: Api = Api("/mosaic/organizations/", None, Organization, True)
+    org_get: Api = Api("/mosaic/organizations/{org_id}", None, Organization, False)
+    # FIXME: reqeust type
+    org_create: Api = Api("/mosaic/organizations/", str, Organization, False)
+    # FIXME: reqeust type
+    org_update: Api = Api("/mosaic/organizations/{org_id}", str, Organization, False)
+    org_members: Api = Api("/mosaic/organizations/members", None, UserBrief, True)
+    org_updates: Api = Api(
+        "/mosaic/organizations/updates", dict, UpdatedResponse, False
+    )
+    invite_create: Api = Api(
+        "/mosaic/invites/invite", InviteUserRequest, Invitation, False
+    )
+    invite_get_all: Api = Api("/mosaic/invites/", None, Invitation, True)
+    invite_get_is_invited: Api = Api("/mosaic/invites/{email}", None, Invitation, False)
+    apikey_get_all: Api = Api("/mosaic/keyauth/", None, ApiKeyEntry, True)
+    apikey_delete: Api = Api("/mosaic/keyauth/{label}", None, ApiKeyEntry, False)
+    apikey_create: Api = Api("/mosaic/keyauth/create", None, ApiKeyCreated, False)
+    apikey_create_jwt: Api = Api(
+        "/mosaic/keyauth/jwt", ApiKeyAuthenticationRequest, ApiKeyAuthResponse, False
+    )
+    activity_get_all: Api = Api("/mosaic/activity/", None, Activity, True)
+    activity_get_by_project: Api = Api(
+        "/mosaic/activity/project_id/{project_id}", None, Activity, True
+    )
+    public_data_get_file: Api = Api("/mosaic/publicdata/", None, FileResponse, False)
+    project_get_all: Api = Api("/neural/project/", None, Project, True)
+    project_get: Api = Api("/neural/project/{project_id}", None, Project, False)
+    project_create: Api = Api("/neural/project/", ProjectCreateRequest, Project, False)
+    project_update: Api = Api("/neural/project/edit", Project, Project, False)
+    project_get_jobs: Api = Api(
+        "/neural/project/{project_id}/jobs", None, JobMeta, True
+    )
+    project_get_embedding_spaces: Api = Api(
+        "/neural/project/{project_id}/embedding_spaces", None, EmbeddingSpace, True
+    )
+    project_get_models: Api = Api(
+        "/neural/project/{project_id}/models", None, Model, True
+    )
+    project_get_fields: Api = Api(
+        "/neural/project/{project_id}/all_fields", None, AllFieldsResponse, True
+    )
+    project_associate_file: Api = Api(
+        "/neural/project/associate", ProjectAssociateRequest, Project, False
+    )
+    project_add_mapping: Api = Api(
+        "/neural/project/mapping", ProjectAddMappingsRequest, Project, False
+    )
+    project_add_ignore_columns: Api = Api(
+        "/neural/project/ignore-cols", ProjectIgnoreColsRequest, Project, False
+    )
+    models_get_predictions: Api = Api(
+        "/neural/models/{model_id}/predictions", str, Prediction, True
+    )
+    models_create_prediction: Api = Api(
+        "/neural/models/prediction", ModelFastPredictionArgs, Prediction, False
+    )
+
+    uploads_get_all: Api = Api("/neural/data/upload/", None, Upload, True)
+    uploads_create: Api = Api("/neural/data/upload/", "files", Upload, False)
+    uploads_get: Api = Api("/neural/data/upload/{upload_id}", None, Upload, False)
+    uploads_delete: Api = Api("/neural/data/upload/{upload_id}", None, Upload, False)
+    uploads_get_by_hash: Api = Api(
+        "/neural/data/upload/by_hash/{hash_id}", None, Upload, False
+    )
+    uploads_get_info: Api = Api(
+        "/neural/data/upload/info/{upload_id}", None, Upload, False
+    )
+    uploads_fetch_url: Api = Api(
+        "/neural/data/upload/fetch_url", UploadFetchUrlArgs, Upload, False
+    )
+    es_get_all: Api = Api("/neural/data/embedding_space/", None, EmbeddingSpace, True)
+    es_get: Api = Api(
+        "/neural/embedding_space/{embedding_space_id}", None, EmbeddingSpace, False
+    )
+    es_get_model: Api = Api(
+        "/neural/embedding_space/{embedding_space_id}/model/{model_id}",
+        None,
+        Model,
+        False,
+    )
+    es_get_models: Api = Api(
+        "/neural/embedding_space/{embedding_space_id}/models/",
+        None,
+        Model,
+        True,
+    )
+    es_get_histogram: Api = Api(
+        "/neural/embedding_space/{embedding_space_id}/value-historgram",
+        None,
+        None,
+        False,
+    )
+    es_get_distance: Api = Api(
+        "/neural/embedding_space/{embedding_space_id}/embedding-distance",
+        None,
+        EmbeddingDistanceResponse,
+        False,
+    )
+    es_delete: Api = Api(
+        "/neural/embedding_space/{embedding_space_id}",
+        None,
+        EmbeddingSpaceDeleteResponse,
+        False,
+    )
+    feeds_get: Api = Api("/neural/feeds/", None, FeedWithEventCounts, True)
+    feeds_get_create_feed: Api = Api(
+        "/neural/feeds/create", FeedCreateArgs, Feed, False
+    )
+    feeds_create_event: Api = Api("/neural/feeds/{feed_public_id}", None, str, False)
+    job_es_create: Api = Api(
+        "/neural/embedding_space/", ESCreateArgs, JobDispatch, False
+    )
+    job_es_train_more: Api = Api(
+        "/neural/embedding_space/trainmore", TrainMoreArgs, JobDispatch, False
+    )
+    job_model_create: Api = Api(
+        "/neural/embedding_space/train-downstream-model",
+        ModelCreateArgs,
+        JobDispatch,
+        False,
+    )
+    job_model_prediction: Api = Api(
+        "/neural/embedding_space/run-model-prediction",
+        ModelPredictionArgs,
+        JobDispatch,
+        False,
+    )
+    job_model_guardrails: Api = Api(
+        "/neural/embedding_space/check-guardrails", GuardRailsArgs, JobDispatch, False
+    )
+    job_encode_records: Api = Api(
+        "/neural/embedding_space/run-encode-records",
+        EncodeRecordsArgs,
+        JobDispatch,
+        False,
+    )
+    job_es_create_db: Api = Api(
+        "/neural/embedding_space/create-database", CreateDBArgs, JobDispatch, False
+    )
+    job_db_cluster: Api = Api(
+        "/neural/embedding_space/run-db-cluster", DBClusterArgs, JobDispatch, False
+    )
+    job_db_nn_query: Api = Api(
+        "/neural/embedding_space/nn-query", NNQueryArgs, JobDispatch, False
+    )
+    job_chained_new_neural_function: Api = Api(
+        "/neural/project/new-neural-function", NewNeuralFunctionArgs, JobDispatch, False
+    )
+
+    jobs_get: Api = Api("/neural/job/{job_id}", None, JobResults, False)
+
+    @staticmethod
+    def verb(name: str):
+        if "get" in name:
+            return "get"
+        if name.startswith("job"):
+            return "job"
+        # In the long term we probably want post/put depending on create vs update (and to return 201/200 for created
+        # vs ok ? But for now it's all just a post
+        for _op in ["post", "update", "create"]:
+            if _op in name:
+                return "post"
+        if "delete" in name:
+            return "delete"
+
+    def get(self, name: str) -> Api | None:
+        return getattr(self, name, None)
+
+    @staticmethod
+    def featrix_validate(api_name, response_object):
+        api = ApiInfo().get(api_name)
+        if api.response_type is None:
+            return None
+        if issubclass(api.response_type, BaseModel):
+            try:
+                if api.list_response:
+                    ro_list = [
+                        _ro.model_dump() if isinstance(_ro, BaseModel) else _ro
+                        for _ro in response_object
+                    ]
+                    return [api.response_type.model_validate(_) for _ in ro_list]
+                else:
+                    ro = (
+                        response_object.model_dump()
+                        if isinstance(response_object, BaseModel)
+                        else response_object
+                    )
+                    return api.response_type.model_validate(ro)
+            except pydantic.ValidationError as e:
+                warnings.warn(f"Invalid response, report this as a bug: {e}")
+                ApiInfo.dump_validation_error_details(
+                    e, response_object, api.response_type
+                )
+        if not isinstance(response_object, api.response_type):
+            return api.response_type(response_object)  # noqa -- will be a base type like int, float, etc
+        return response_object
+
+    @staticmethod
+    def reclass(parent, model, **kwargs):
+        def augment(obj):
+            for k, v in kwargs.items():
+                setattr(obj, k, v)
+            # For now, fix the issue with _id / id
+            ident_id = getattr(obj, "_id", None)
+            if ident_id is not None:
+                setattr(obj, "id", ident_id)
+            return obj
+
+        if not issubclass(parent, BaseModel):
+            raise ValueError("Cannot reclass non-pydantic classes")
+        if isinstance(model, list):
+            return [augment(parent.model_validate(_.model_dump())) for _ in model]
+        # print(f"Passing to validate for {parent}: {model.model_dump_json(indent=4)}")
+        return augment(parent.model_validate(model.model_dump()))
+
+    @staticmethod
+    def url_substitution(url, **kwargs):
+        return url.format(**kwargs)
