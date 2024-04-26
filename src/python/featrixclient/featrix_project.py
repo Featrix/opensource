@@ -29,6 +29,7 @@
 #############################################################################
 from __future__ import annotations
 
+import time
 from datetime import datetime
 from typing import Any
 from typing import Dict
@@ -39,11 +40,13 @@ from featrixclient.featrix_job import FeatrixJob
 from pydantic import Field
 
 from .api_urls import ApiInfo
+from .exceptions import FeatrixException
 from .featrix_embedding_space import FeatrixEmbeddingSpace
 from .featrix_upload import FeatrixUpload
 from .models import Project
 from .models import PydanticObjectId
 from .models.project import AllFieldsResponse
+from .utils import display_message
 
 
 class FeatrixProject(Project):
@@ -95,6 +98,26 @@ class FeatrixProject(Project):
         return ApiInfo.reclass(
             cls, fc.api.op("project_get", project_id=project_id), fc=fc
         )
+
+    def ready(self, wait_for_completion: bool = False) -> bool:
+        not_ready = []
+        if len(self.associated_uploads) == 0:
+            raise FeatrixException("Project has no associated uploads/datafiles")
+        for ua in self.associated_uploads:
+            upload = FeatrixUpload.by_id(ua.upload_id, self.fc)
+            if upload.ready_for_training is False:
+                not_ready.append(upload)
+        if len(not_ready) == 0:
+            return True
+        elif wait_for_completion is False:
+            return False
+        for up in not_ready:
+            while up.ready_for_training is False:
+                display_message(f"Waiting for upload {up.filename} to be ready for training")
+                time.sleep(5)
+                up = up.by_id(up.id, self.fc)
+        display_message("Uploads processed, project ready for training")
+        return True
 
     def save(self):
         project = self.fc.api.op("project_update", self)
@@ -176,8 +199,8 @@ class FeatrixProject(Project):
         self,
         upload: FeatrixUpload,
         label: Optional[str] = None,
-        sample_row_count: Optional[int] = None,
-        sample_percentage: Optional[float] = None,
+        sample_row_count: int = 0,
+        sample_percentage: float = 1.0,
         drop_duplicates: bool = True,
     ):
         if sample_row_count is None and sample_percentage is None:

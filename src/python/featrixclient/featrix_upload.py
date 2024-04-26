@@ -54,7 +54,7 @@ class FeatrixUpload(Upload):
 
     @classmethod
     def new(
-        cls, fc: Any, filename: str, user_meta: Optional[Dict] = None
+        cls, fc: Any, filename: str | Path, user_meta: Optional[Dict] = None
     ) -> "FeatrixUpload":
         path = Path(filename)
         if not path.exists():
@@ -70,12 +70,12 @@ class FeatrixUpload(Upload):
         return ApiInfo.reclass(cls, results, fc=fc)
 
     @classmethod
-    def by_id(cls, fc: Any, upload_id: str) -> "FeatrixUpload":
+    def by_id(cls, upload_id: str, fc: Any) -> "FeatrixUpload":
         results = fc.api.op("uploads_get", upload_id=upload_id)
         return ApiInfo.reclass(cls, results, fc=fc)
 
     @classmethod
-    def by_hash(cls, fc: Any, hash_id: str) -> "FeatrixUpload":
+    def by_hash(cls, hash_id: str, fc: Any) -> "FeatrixUpload":
         results = fc.api.op("uploads_get_by_hash", hash_id=hash_id)
         return ApiInfo.reclass(cls, results, fc=fc)
 

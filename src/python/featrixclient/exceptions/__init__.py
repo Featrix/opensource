@@ -61,6 +61,14 @@ class FeatrixNoGuestOrganization(FeatrixException):
     pass
 
 
+class FeatrixJobFailure(FeatrixException):
+    def __init__(self, job):
+        if job.error_msg:
+            super().__init__(job.error_msg)
+        else:
+            super().__init__("Job failed, no details available")
+
+
 class FeatrixDuplicateAssociation(FeatrixException):
     def __init__(self, project: Any, association: Any):
         self.association = association

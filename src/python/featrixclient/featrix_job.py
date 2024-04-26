@@ -33,17 +33,21 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
+import warnings
+import time
 
+from IPython.display import clear_output
 from pydantic import Field
 
 from .api_urls import ApiInfo
-from .featrix_model import FeatrixModel
+from .exceptions import FeatrixException
 from .models import ESCreateArgs
 from .models import GuardRailsArgs
 from .models import JobResults
 from .models import ModelPredictionArgs
 from .models.job_meta import JobDispatch
 from .models.job_meta import JobMeta as Job
+from .utils import display_message
 
 
 #  -*- coding: utf-8 -*-
@@ -76,6 +80,22 @@ class FeatrixJob(Job):
     def check(self):
         return FeatrixJob.by_id(self.fc, str(self.id))
 
+    def wait_for_completion(self, message: Optional[str] = None) -> "FeatrixJob":  # noqa
+        if self.finished:
+            return self
+        job = self
+        print(f"waiting for completion of job {job.id}")
+        while job.finished is False:
+            display_message(f"{message if message else 'Status:'} "
+                            f"{job.incremental_status.message if job.incremental_status else 'No status yet'}")
+            time.sleep(5)
+            job = job.by_id(self.fc, str(self.id))
+        display_message(
+            f"{message if message else 'Status:'} "
+            f"{job.incremental_status.message if job.incremental_status else 'Completed'}"
+        )
+        return job
+
     @classmethod
     def create_embedding(
         cls,
@@ -92,9 +112,11 @@ class FeatrixJob(Job):
     def run_prediction(
         cls,
         fc: Any,
-        model: FeatrixModel,
+        model: "FeatrixModel",  # noqa F821 forward ref
         query: List[Dict] | Dict,
     ):
+        from .featrix_model import FeatrixModel
+
         if isinstance(query, dict):
             query = [query]
         predict = ModelPredictionArgs(model_id=str(model.id), query=query)
@@ -106,10 +128,12 @@ class FeatrixJob(Job):
     def check_guardrails(
         cls,
         fc: Any,
-        model: FeatrixModel,
+        model: "FeatrixModel",  # noqa F821 forward ref
         query: List[Dict] | Dict,
         issues_only: bool = False,
     ):
+        from .featrix_model import FeatrixModel
+
         check = GuardRailsArgs(
             model_id=str(model.id), issues_only=issues_only, query=query
         )
@@ -121,6 +145,8 @@ class FeatrixJob(Job):
     def from_job_dispatch(cls, jd: JobDispatch, fc) -> "FeatrixJob":
         # print(f"Job from dispatch is {str(jd.job_id)}")
         # print(f"Job dispatch is {jd.model_dump_json(indent=4)}")
+        if jd.error:
+            raise FeatrixException(jd.error_message)
         return FeatrixJob.by_id(fc, str(jd.job_id))
 
 

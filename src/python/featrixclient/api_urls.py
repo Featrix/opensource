@@ -36,6 +36,7 @@ import pydantic
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from .exceptions import FeatrixException
 from .models import Activity
 from .models import AllFieldsResponse
 from .models import ApiKeyAuthenticationRequest
@@ -146,6 +147,9 @@ class ApiInfo(BaseModel):
     models_create_prediction: Api = Api(
         "/neural/models/prediction", ModelFastPredictionArgs, Prediction, False
     )
+    model_get: Api = Api(
+        "/neural/models/{model_id}", None, Model, False
+    )
 
     uploads_get_all: Api = Api("/neural/data/upload/", None, Upload, True)
     uploads_create: Api = Api("/neural/data/upload/", "files", Upload, False)
@@ -164,6 +168,7 @@ class ApiInfo(BaseModel):
     es_get: Api = Api(
         "/neural/embedding_space/{embedding_space_id}", None, EmbeddingSpace, False
     )
+    es_get_training_jobs: Api = Api("/neural/embedding_space/{embedding_space_id}/training_jobs", None, JobMeta, True)
     es_get_model: Api = Api(
         "/neural/embedding_space/{embedding_space_id}/model/{model_id}",
         None,
@@ -194,6 +199,7 @@ class ApiInfo(BaseModel):
         EmbeddingSpaceDeleteResponse,
         False,
     )
+    es_get_explorer: Api = Api("/neural/embedding_space/{embedding_space_id}/explorer", None, dict, False)
     feeds_get: Api = Api("/neural/feeds/", None, FeedWithEventCounts, True)
     feeds_get_create_feed: Api = Api(
         "/neural/feeds/create", FeedCreateArgs, Feed, False
@@ -236,7 +242,7 @@ class ApiInfo(BaseModel):
         "/neural/embedding_space/nn-query", NNQueryArgs, JobDispatch, False
     )
     job_chained_new_neural_function: Api = Api(
-        "/neural/project/new-neural-function", NewNeuralFunctionArgs, JobDispatch, False
+        "/neural/project/new-neural-function", NewNeuralFunctionArgs, JobDispatch, True
     )
 
     jobs_get: Api = Api("/neural/job/{job_id}", None, JobResults, False)
@@ -249,11 +255,12 @@ class ApiInfo(BaseModel):
             return "job"
         # In the long term we probably want post/put depending on create vs update (and to return 201/200 for created
         # vs ok ? But for now it's all just a post
-        for _op in ["post", "update", "create"]:
+        for _op in ["post", "update", "create", "associate"]:
             if _op in name:
                 return "post"
         if "delete" in name:
             return "delete"
+        raise FeatrixException(f"Unknown verb for operation {name}")
 
     def get(self, name: str) -> Api | None:
         return getattr(self, name, None)
