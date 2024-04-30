@@ -94,7 +94,7 @@ class FeatrixProject(Project):
         return ApiInfo.reclass(cls, projects, fc=fc)
 
     @classmethod
-    def by_id(cls, fc: Any, project_id):
+    def by_id(cls, project_id, fc):
         return ApiInfo.reclass(
             cls, fc.api.op("project_get", project_id=project_id), fc=fc
         )
@@ -102,7 +102,10 @@ class FeatrixProject(Project):
     def ready(self, wait_for_completion: bool = False) -> bool:
         not_ready = []
         if len(self.associated_uploads) == 0:
-            raise FeatrixException("Project has no associated uploads/datafiles")
+            project = self.by_id(self.id, self.fc)
+            if len(project.associated_uploads) == 0:
+                raise FeatrixException(f"Project {self.name} ({self.id}) has no associated uploads/datafiles")
+            return project.ready()
         for ua in self.associated_uploads:
             upload = FeatrixUpload.by_id(ua.upload_id, self.fc)
             if upload.ready_for_training is False:

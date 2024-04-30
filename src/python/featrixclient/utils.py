@@ -38,7 +38,7 @@ def running_in_notebook():
 
         if 'IPKernelApp' not in get_ipython().config:  # pragma: no cover
             return False
-    except ImportError:
+    except:  # noqa - anyway this fails, we aren't in a notebook
         return False
     return True
 

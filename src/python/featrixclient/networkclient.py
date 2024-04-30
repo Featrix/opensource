@@ -150,6 +150,11 @@ class Featrix:
             debug=self.debug,
         )
 
+    def _store_project(self, project: FeatrixProject):
+        self._projects[str(project.id)] = project
+        if self._current_project and str(self._current_project.id) == str(project.id):
+            self.current_project = project
+
     def projects(self) -> List[FeatrixProject]:
         """
         Return all the projects in your account as a list.  Each project has a name and a list of associated
@@ -164,7 +169,7 @@ class Featrix:
         for project in projects:
             if self.debug:
                 print(f"Found project: {project.model_dump_json(indent=4)}")
-            self._projects[str(project.id)] = project
+            self._store_project(project)
         if self.current_project is None:
             if len(projects) > 0:
                 self.current_project = projects[0]
@@ -204,7 +209,7 @@ class Featrix:
             raise FeatrixException(
                 "Can only set the current project to a valid FeatrixProject class"
             )
-        self._current_project = value
+        self._current_project = project
         if self.debug:
             print(
                 f"Setting current project to {self._current_project.name} - {self._current_project.id}"
@@ -213,6 +218,9 @@ class Featrix:
                 f"Refreshing embedding spaces for project {self._current_project.name}"
             )
         self._current_project.embedding_spaces()
+
+    def get_project_by_id(self, project_id: str) -> FeatrixProject:
+        return self._projects.get(str(project_id))
 
     def create_project(
         self,
@@ -324,9 +332,9 @@ class Featrix:
         if associate:
             if isinstance(associate, FeatrixProject):
                 project = associate.associate(upload)
-                self._projects[str(project.id)] = project
+                self._store_project(project)
             elif associate is True and self._current_project is not None:
-                self.current_project = self._current_project.associate(upload)
+                self._store_project(self._current_project.associate(upload))
             else:
                 raise FeatrixException(
                     "No current project with which to associate upload"
@@ -618,7 +626,7 @@ class Featrix:
                 raise
 
         if files is not None:
-            self.upload_files(files, associate=True)
+            self.upload_files(files, associate=self.current_project)
 
         if self.current_project.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
@@ -634,7 +642,7 @@ class Featrix:
         for job in jobs:
             if job.error:
                 raise FeatrixJobFailure(job)
-        model = FeatrixModel.from_job(jobs[1])
+        model = FeatrixModel.from_job(jobs[1], self)
         return model, jobs[0], jobs[1]
 
     def predictions(self):
