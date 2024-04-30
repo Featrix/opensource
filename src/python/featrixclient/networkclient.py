@@ -508,7 +508,7 @@ class Featrix:
         if self.current_project.ready(wait_for_completion=upload_processing_wait) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
         es, job = FeatrixEmbeddingSpace.new_embedding_space(
-            fc,
+            self,
             name=name,
             credit_budget=credit_budget,
         )
