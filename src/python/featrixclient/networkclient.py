@@ -222,6 +222,15 @@ class Featrix:
     def get_project_by_id(self, project_id: str) -> FeatrixProject:
         return self._projects.get(str(project_id))
 
+    def drop_project(self, project_id: str) -> None:
+        try:
+            del self._projects[str(project_id)]
+            if str(self._current_project.id) == str(project_id):
+                self._current_project = None
+        except KeyError:
+            pass
+        return
+
     def create_project(
         self,
         name: Optional[str] = None,
@@ -234,14 +243,20 @@ class Featrix:
         self.current_project = FeatrixProject.new(self, name, user_meta=user_meta, tags=tags)
         return self.current_project
 
-    def get_upload(self, upload_id: str = None, filename: str = None) -> FeatrixUpload:
+    def get_uploads(self):
+        uploads = FeatrixUpload.all(self)
+        for upload in uploads:
+            self._library[upload.filename] = upload
+            self._uploads[str(upload.id)] = upload
+
+    def get_upload(self, upload_id: str = None, filename: str = None, reload: bool = True) -> FeatrixUpload:
         """
         Return the upload object (FeatrixUpload) for the given upload id or filename.
 
         Args:
             upload_id (str): Upload id of an upload to find in the library (FeatrixUpload.id)
             filename (str): the filename to use to locate an upload in the library (FeatrixUpload.filename)
-
+            reload (bool): if the upload isn't here, try to reload the library
         Returns:
             FeatrixUpload for the given id or filename, otherwise it will raise a FeatrixException.
         """
@@ -251,18 +266,21 @@ class Featrix:
             )
 
         if len(self._library) == 0:
-            uploads = FeatrixUpload.all(self)
-            for upload in uploads:
-                self._library[upload.filename] = upload
-                self._uploads[str(upload.id)] = upload
+            fc.get_uploads()
         if upload_id is not None:
             if str(upload_id) in self._uploads:
                 return self._uploads[str(upload_id)]
+            elif reload:
+                self.get_uploads()
+                return self.get_upload(upload_id=upload_id, reload=False)
             else:
                 raise FeatrixException(f"No such file {upload_id} in library")
         if filename is not None:
             if filename in self._library:
                 return self._library[filename]
+            elif reload:
+                self.get_uploads()
+                return self.get_upload(filename=filename, reload=False)
             else:
                 raise FeatrixException(f"No such file {filename} in library")
 

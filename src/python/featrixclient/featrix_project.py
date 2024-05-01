@@ -45,7 +45,7 @@ from .featrix_embedding_space import FeatrixEmbeddingSpace
 from .featrix_upload import FeatrixUpload
 from .models import Project
 from .models import PydanticObjectId
-from .models.project import AllFieldsResponse
+from .models.project import AllFieldsResponse, ProjectDeleteResponse
 from .utils import display_message
 
 
@@ -241,3 +241,11 @@ class FeatrixProject(Project):
             columns=[str(col) for col in columns],
         )
         return ApiInfo.reclass(FeatrixProject, results, fc=self.fc)
+
+    def delete(self):
+        result = self.fc.api.op("project_delete", project_id=str(self.id))
+        self.jobs_cache = dict()
+        self.embedding_spaces_cache = dict()
+        self.all_fields_cache = []
+        self.fc.drop_project(self.id)
+        return result

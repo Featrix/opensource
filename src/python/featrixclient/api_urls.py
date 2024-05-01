@@ -37,7 +37,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from .exceptions import FeatrixException
-from .models import Activity
+from .models import Activity, ProjectDeleteResponse
 from .models import AllFieldsResponse
 from .models import ApiKeyAuthenticationRequest
 from .models import ApiKeyAuthResponse
@@ -141,6 +141,7 @@ class ApiInfo(BaseModel):
     project_add_ignore_columns: Api = Api(
         "/neural/project/ignore-cols", ProjectIgnoreColsRequest, Project, False
     )
+    project_delete: Api = Api("/neural/project/{project_id}", None, ProjectDeleteResponse, False)
     models_get_predictions: Api = Api(
         "/neural/models/{model_id}/predictions", str, Prediction, True
     )
