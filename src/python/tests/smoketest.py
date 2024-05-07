@@ -23,6 +23,7 @@ except ImportError:
     sys.path.insert(0, str(top))
     print(f"path is {sys.path}")
     import featrixclient as ft
+from featrixclient.models import TrainingState
 
 
 uploads_to_delete = []
@@ -216,6 +217,31 @@ def test_nf(fc):
         uploads_to_delete.append(up)
         projects_to_delete.append(p)
 
+    return
+
+
+def test_explorer(fc):
+    animals = data_files / "animals.csv"
+
+    with tempfile.TemporaryDirectory() as _dir:
+        td = Path(_dir)
+        start = datetime.utcnow()
+        target_file = td / f"nf_test_one-{uuid.uuid4()}.csv"
+        generate_data_file(animals, 1000, output_file=target_file, column_name="Animal")
+        print("Explorer Test 1/3...Testing full create explorer (will take a few minutes)")
+        project_name = f"Animals_{uuid.uuid4()}"
+        es, models = fc.create_explorer(project=project_name, files=[target_file], wait_for_completion=True)
+        uploads_to_delete.append(fc.get_upload(upload_id=p.associated_uploads[0].upload_id))
+        projects_to_delete.append(fc.current_project)
+        if es is None or es.training_state != TrainingState.COMPLETED:
+            raise RuntimeError(f"Explorer failed to create embedding space (project {project_name}) "
+                               "properly (missing or untrained).")
+        if len(models) != 3:
+            raise RuntimeError(f"Explorer failed to create 3 Models for ES (only created {len(models)} ")
+        for model in models:
+            if model.training_state != TrainingState.COMPLETED:
+                raise RuntimeError(f"Explorer failed to train Model {model.name} - {model.id}")
+        print(f"......created explorer project {project_name} in {(datetime.utcnow() - start).total_seconds()} secs")
     return
 
 
@@ -470,6 +496,10 @@ def main():
         substart = datetime.utcnow()
         test_es(fc)
         print(f"Finished Embedding Space testing in {(datetime.utcnow() - substart).total_seconds()} seconds.")
+
+        substart = datetime.utcnow()
+        test_explorer(fc)
+        print(f"Finished Explorer creation testing in {(datetime.utcnow() - substart).total_seconds()} seconds.")
         print(f"Smoke test complete in {(datetime.utcnow() - start).total_seconds()} seconds.")
 
     except Exception as e:

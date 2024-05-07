@@ -55,6 +55,17 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
     explorer_data: Dict = Field(default=None, exclude=True)
 
     @staticmethod
+    def create_args(project_id: str, name: str, **kwargs):
+        es_create_args = ESCreateArgs(
+            project_id=project_id,
+            name=name,
+        )
+        for k, v in kwargs.items():
+            if k in ESCreateArgs.__annotations__:
+                setattr(es_create_args, k, v)
+        return es_create_args
+
+    @staticmethod
     def new_embedding_space(
             fc: Any,
             name: Optional[str] = None,
@@ -72,14 +83,12 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         if name is None:
             name = f"{fc.current_project.name}-{uuid.uuid4}"
 
-        es_create_args = ESCreateArgs(
-            project_id=str(fc.current_project.id),
-            name=name,
+        es_create_args = FeatrixEmbeddingSpace.create_args(
+            str(fc.current_project.id),
+            name,
             training_budget_credits=credit_budget,
+            **kwargs
         )
-        for k, v in kwargs.items():
-            if k in ESCreateArgs.__annotations__:
-                setattr(es_create_args, k, v)
 
         dispatch = fc.api.op("job_es_create", es_create_args)
         job = FeatrixJob.from_job_dispatch(dispatch, fc)
@@ -119,6 +128,39 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
 
         results = self.fc.api.op("es_get_training_jobs", embedding_space_id=str(self.id))
         return ApiInfo.reclass(FeatrixJob, results, fc=self.fc)
+
+    def explorer_training_jobs(
+            self,
+            wait_for_creation: bool = False,
+            wait_for_training_job: "FeatrixJob" = None,  # noqa
+            max_wait: int = 5
+    ):
+        from .featrix_job import FeatrixJob  # noqa
+
+        if wait_for_training_job:
+            # Wait for this job first -- it will be kicking the rest off.
+            wait_for_training_job.wait_for_completion(
+                f"Waiting for job watcher completion (id {wait_for_training_job.id})...")
+        if self.es_neural_attrs is None:
+            print("es neurals are none!")
+            es = self.by_id(str(self.id), fc=self.fc)
+        else:
+            es = self
+        if es.es_neural_attrs is None:
+            raise RuntimeError(f"EmbeddingSpace did not have neural attributes after training ({es.id})")
+        jobs = es.find_training_jobs()
+        if wait_for_creation:
+            cnt = 0
+            columns = len(es.es_neural_attrs.get('col_order', []))
+            while len(jobs) != columns:
+                if cnt == max_wait:
+                    raise RuntimeError(f"Model Jobs not scheduled correctly: {len(jobs)} of {columns} found")
+                cnt += 1
+                display_message("Waiting for model trailing jobs to all be scheduled... "
+                                f"({len(jobs)} / {columns})")
+                time.sleep(5)
+                jobs = es.find_training_jobs()
+        return jobs
 
     def models(self, force: bool = False):
         since = None

@@ -54,6 +54,16 @@ class FeatrixModel(Model):
     predictions_cache: Optional[Any] = Field(default_factory=dict, exclude=True)
     predictions_cache_updated: Optional[datetime] = Field(default=None, exclude=True)
 
+    @staticmethod
+    def create_args(project_id: str, **kwargs):
+        model_create_args = ModelCreateArgs(
+            project_id=project_id,
+        )
+        for k, v in kwargs.items():
+            if k in ModelCreateArgs.__annotations__:
+                setattr(model_create_args, k, v)
+        return model_create_args
+
     @classmethod
     def by_id(cls, model_id: str, fc: Any):
         result = fc.api.op("model_get", model_id=model_id)
@@ -68,7 +78,8 @@ class FeatrixModel(Model):
             fc: Any,
             target_field: str | List[str],
             credit_budget: int = 3,
-            embedding_space: Optional["FeatrixEmbeddingSpace" | str] = None,    # noqa F821 forward ref
+            embedding_space: Optional["FeatrixEmbeddingSpace" | str] = None,  # noqa F821 forward ref
+            **kwargs
         ):  # noqa
         """
         This creates a chained-job to do training first on an embedding space, and then on the predictive model
@@ -82,13 +93,16 @@ class FeatrixModel(Model):
             raise NotImplementedError("Not implemented yet")
         if isinstance(target_field, str):
             target_field = [target_field]
-        es_create_args = ESCreateArgs(project_id=fc.current_project.id)
-        model_create_args = ModelCreateArgs(target_columns=target_field, project_id=fc.current_project.id)
+
         neural_request = NewNeuralFunctionArgs(
             project_id=fc.current_project.id,
             training_credits_budgeted=credit_budget,
-            embedding_space_create= es_create_args,
-            model_create=model_create_args
+            embedding_space_create=FeatrixEmbeddingSpace.create_args(
+                str(fc.current_project.id),
+                kwargs.get('name', f"Predict_{'_'.join(target_field)}"),
+                **kwargs
+            ),
+            model_create=FeatrixModel.create_args(str(fc.current_project.id), target_columns=target_field, **kwargs)
         )
         dispatches = fc.api.op("job_chained_new_neural_function", neural_request)
         jobs = [FeatrixJob.from_job_dispatch(dispatch, fc) for dispatch in dispatches]

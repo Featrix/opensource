@@ -72,6 +72,12 @@ class ProjectTableMapping(BaseModel):
     fields: list[ProjectFieldMapping]
 
 
+class ProjectType(Enum):
+    SDK = "sdk"
+    HAYSTACK = "haystack"
+    EXPLORER = "explorer"
+
+
 class Project(FeatrixBase):
     model_config = ConfigDict(extra="allow")
 
@@ -83,17 +89,16 @@ class Project(FeatrixBase):
     # project_type: ProjectType
     tags: List[str] = Field(default_factory=list)
 
+    type: ProjectType = Field(default=ProjectType.SDK)
+
     # List of uploads that are associated with this project
     associated_uploads: List[UploadAssociation] = Field(default_factory=list)
     embedding_space_ids: List[PydanticObjectId] = Field(default_factory=list)
     # self.get_ignore_cols -> self.ignore_cols
     ignore_cols: List[str] = Field(default_factory=list)
-    focus_cols: List[str] = Field(default_factory=list)
+    focus_cols: List[str]  = Field(default_factory=list)
     type_overrides: List[str] = Field(default_factory=list)
 
-    # FIXME: I think this is a table mapping, and each one should have a target/source associated id, and
-    # a list of field mappings where each one is a target column and either a source column or source combo?
-    # For now just store a dict, which can have whatever it needs to for each one.  Flesh them out later.
     mappings: list[ProjectTableMapping] = []
     user_meta: Dict[str, Any] = Field(default_factory=dict)
 

@@ -43,7 +43,8 @@ from .api_urls import ApiInfo
 from .exceptions import FeatrixException
 from .featrix_embedding_space import FeatrixEmbeddingSpace
 from .featrix_upload import FeatrixUpload
-from .models import Project
+from .models import Project, NewExplorerArgs, ESCreateArgs
+from .models import ProjectType
 from .models import PydanticObjectId
 from .models.project import AllFieldsResponse, ProjectDeleteResponse
 from .utils import display_message
@@ -70,6 +71,7 @@ class FeatrixProject(Project):
         cls,
         fc: Any,
         name: Optional[str] = None,
+        project_type: ProjectType = ProjectType.SDK,
         user_meta: Optional[Dict] = None,
         tags: Optional[List[str]] = None,
     ):
@@ -80,11 +82,12 @@ class FeatrixProject(Project):
         Arguments:
             fc: Featrix client class
             name: optional name of the project to look up or create by
+            project_type: ProjectType defaulting to SDK
             user_meta: optional user meta if standing up a new project (or it will be added)
             tags: optional list of tags to add to the project
         """
         project = fc.api.op(
-            "project_create", name=name, tags=tags or [], user_meta=user_meta or {}
+            "project_create", name=name, type=project_type.name, tags=tags or [], user_meta=user_meta or {}
         )
         return ApiInfo.reclass(cls, project, fc=fc)
 
@@ -249,3 +252,21 @@ class FeatrixProject(Project):
         self.all_fields_cache = []
         self.fc.drop_project(self.id)
         return result
+
+    def new_explorer(self, name: str,  training_credits_budgeted: float = 50, **kwargs):
+        es_create_args = FeatrixEmbeddingSpace.create_args(
+            str(self.id),
+            name,
+            training_budget_credits=training_credits_budgeted,
+            **kwargs
+        )
+        dispatches = self.fc.api.op(
+            "job_chained_new_explorer",
+            name=name,
+            project_id=str(self.id),
+            training_credits_budgeted=training_credits_budgeted,
+            embedding_space_create=es_create_args
+        )
+        jobs = [FeatrixJob.from_job_dispatch(dispatch, self.fc) for dispatch in dispatches]
+        es = FeatrixEmbeddingSpace.by_id(str(jobs[0].embedding_space_id), self.fc)
+        return es, jobs

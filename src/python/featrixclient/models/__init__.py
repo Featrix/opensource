@@ -87,6 +87,7 @@ from .job_requests import ModelCreateArgs  # noqa F401
 from .job_requests import ModelFastPredictionArgs  # noqa F401
 from .job_requests import ModelPredictionArgs  # noqa F401
 from .job_requests import NewNeuralFunctionArgs  # noqa F401
+from .job_requests import NewExplorerArgs  # noqa F401
 from .job_requests import NNQueryArgs  # noqa F401
 from .job_requests import ProcessSmartEnrichmentArgs  # noqa F401
 from .job_requests import ProcessUploadArgs  # noqa F401
@@ -112,6 +113,7 @@ from .organization import UpdatedRequest  # noqa F401
 from .organization import UpdatedResponse  # noqa F401
 from .prediction import Prediction  # noqa F401
 from .project import AllFieldsResponse  # noqa F401
+from .project import ProjectType  # noqa F401
 from .project import Project  # noqa F401
 from .project import ProjectAddMappingsRequest  # noqa F401
 from .project import ProjectAssociateRequest  # noqa F401

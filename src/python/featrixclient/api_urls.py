@@ -37,7 +37,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from .exceptions import FeatrixException
-from .models import Activity, ProjectDeleteResponse
+from .models import Activity, ProjectDeleteResponse, NewExplorerArgs
 from .models import AllFieldsResponse
 from .models import ApiKeyAuthenticationRequest
 from .models import ApiKeyAuthResponse
@@ -245,7 +245,9 @@ class ApiInfo(BaseModel):
     job_chained_new_neural_function: Api = Api(
         "/neural/project/new-neural-function", NewNeuralFunctionArgs, JobDispatch, True
     )
-
+    job_chained_new_explorer: Api = Api(
+        "/neural/project/new-explorer", NewExplorerArgs, JobDispatch, True
+    )
     jobs_get: Api = Api("/neural/job/{job_id}", None, JobResults, False)
 
     @staticmethod

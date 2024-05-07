@@ -119,22 +119,24 @@ class ESWaitToFinish(JobArgs):
     """
     Use this when you want to queue another job in a chain after an embedding space has finished training.
     """
-
     job_type: JobType = Field(
         default=JobType.JOB_TYPE_ES_WAIT_TO_TRAIN,
         frozen=True,
         description="A Embedding Space Creation Job. The JobType should not be changed",
     )
 
-    # do not autoload stuff into the job work area.
-    skip_auto_load: bool = True
-
     #  The ES we are waiting for -- this is required!
     embedding_space_id: PydanticObjectId
     other_job_id: PydanticObjectId
 
+    # do not autoload stuff into the job work area.
+    skip_auto_load: bool = True
+
     # the model who is waiting.
-    model_id: PydanticObjectId
+    model_id: Optional[PydanticObjectId] = None
+
+    # Schedule model builds upon completion?
+    build_explorer_models: bool = Field(default=False)
 
 
 class ESCreateArgs(JobArgs):
@@ -391,6 +393,18 @@ class NewNeuralFunctionArgs(ChainedJobArgs):
     training_credits_budgeted: float
     embedding_space_create: ESCreateArgs
     model_create: ModelCreateArgs
+
+
+class NewExplorerArgs(ChainedJobArgs):
+    job_type: ChainedJobType = Field(
+        default=ChainedJobType.CHAINED_JOB_TYPE_NEW_EXPLORER,
+        frozen=True,
+        description="Create an Explorer space by training an embedding space, and then training a "
+        "model within that embedding space for each column",
+    )
+    project_id: PydanticObjectId
+    training_credits_budgeted: float
+    embedding_space_create: ESCreateArgs
 
 
 class ModelPredictionArgs(JobArgs):

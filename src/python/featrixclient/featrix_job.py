@@ -63,7 +63,7 @@ class FeatrixJob(Job):
     latest_job_result: Optional[JobResults] = None
 
     @classmethod
-    def by_id(cls, fc: Any, job_id: str) -> "FeatrixJob":
+    def by_id(cls, job_id: str, fc) -> "FeatrixJob":
         results = fc.api.op("jobs_get", job_id=job_id)
         # print(f"Got {results} from job get")
         # print(f"job meta is {results.job_meta}")
@@ -78,7 +78,36 @@ class FeatrixJob(Job):
         return self.latest_job_result.message if self.latest_job_result else None
 
     def check(self):
-        return FeatrixJob.by_id(self.fc, str(self.id))
+        return FeatrixJob.by_id(str(self.id), self.fc)
+
+    @staticmethod
+    def wait_for_jobs(
+            fc: Any,
+            jobs: List["FeatrixJob"],
+            msg: str = "Waiting for jobs: ",
+            cycle: int = 5
+    ) -> List[FeatrixJob]:
+        cnt = len(jobs)
+        while True:
+            done = errors = 0
+            jobs = [job.by_id(job.id, fc) for job in jobs]
+            working = []
+            for job in jobs:
+                if job.finished is True:
+                    done += 1
+                    if job.error is True:
+                        errors += 1
+                elif job.incremental_status and job.incremental_status.message:
+                    working.append(job)
+            if cnt == done:
+                return jobs
+            errmsg = f" -- errors {errors}" if errors else ""
+            full_msg = f"{msg}: {done}/{cnt} completed {errmsg}"
+            if len(working):
+                for job in working:
+                    full_msg += f"\n ...Running Job {job.id}: {job.incremental_status.message}"
+            display_message(full_msg)
+            time.sleep(cycle)
 
     def wait_for_completion(self, message: Optional[str] = None) -> "FeatrixJob":  # noqa
         if self.finished:
@@ -89,7 +118,7 @@ class FeatrixJob(Job):
             display_message(f"{message if message else 'Status:'} "
                             f"{job.incremental_status.message if job.incremental_status else 'No status yet'}")
             time.sleep(5)
-            job = job.by_id(self.fc, str(self.id))
+            job = job.by_id(str(self.id), self.fc)
         display_message(
             f"{message if message else 'Status:'} "
             f"{job.incremental_status.message if job.incremental_status else 'Completed'}"
@@ -147,7 +176,7 @@ class FeatrixJob(Job):
         # print(f"Job dispatch is {jd.model_dump_json(indent=4)}")
         if jd.error:
             raise FeatrixException(jd.error_message)
-        return FeatrixJob.by_id(fc, str(jd.job_id))
+        return FeatrixJob.by_id(str(jd.job_id), fc)
 
 
 """

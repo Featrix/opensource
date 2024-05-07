@@ -68,7 +68,7 @@ import pandas as pd
 
 from featrixclient.featrix_embedding_space import FeatrixEmbeddingSpace
 from featrixclient.featrix_job import FeatrixJob
-from featrixclient.models import TrainingState
+from featrixclient.models import TrainingState, ProjectType, JobType
 from .api import FeatrixApi
 from .exceptions import FeatrixException, FeatrixJobFailure
 from .featrix_model import FeatrixModel
@@ -662,6 +662,120 @@ class Featrix:
                 raise FeatrixJobFailure(job)
         model = FeatrixModel.from_job(jobs[1], self)
         return model, jobs[0], jobs[1]
+
+    def create_explorer(
+            self,
+            project: Optional[FeatrixProject | str] = None,
+            credit_budget: int = 3,
+            files: Optional[List[pd.DataFrame | str | Path]] = None,
+            wait_for_model_jobs: bool = False,
+            wait_for_completion: bool = False,
+            **kwargs
+    ) -> Tuple[FeatrixEmbeddingSpace, FeatrixJob | List[FeatrixJob] | List[FeatrixModel]]:
+        """
+        Create a new data explorer in the current project.  If a project is passed in with the project
+        argument, and it is of the right type (ProjectType.EXPLORER) it is made the current project.
+        If the project is a string, if it is an object id (standard id for a FeatrixProject) we attempt
+        to find that project and make it the current project.  If the string in project is not a valid object id,
+        we assume it is a name to be used for creating a new explorer project.
+
+        If an embedding space is already trained or being trained in the project, we will use that embedding space
+        for the base of the explorer work, otherwise we will first train an embedding space on the data files included
+        in the project.  If a list of datasets are passed into this function, we will first upload and associate
+        those files with the project being used.
+
+        With an explorer project, we must first fully train an embedding space, and then a series of jobs will be
+        started to create neural function models on each column in the embedding space.
+
+        There are two waiting modes -- wait_for_completion will wait for both the embedding space and all of the
+        model jobs to be completed before returning.  In this case it will return a tuple of the EmbeddingSapce
+        and a list of models associated with the explorer project.
+
+        If this is set to false but wait_for_model_jobs is set, the function will wait unitl the embedding space is
+        completed, and there are jobs for each column in place and return a tuple of the Embedding space and a
+        list of Jobs associated with each model being worked on.
+
+        If both wait_for_completion and wait_for_model_jobs are False, we will return a tuple of the Embedding space
+        and the embedding space training job, unless the embedding space was already trained when the create was
+        called, in which case we will revert to the return values as if wait_for_model_jobs was set (e.g.: a
+        tuple of the embedding space and the model jobs).
+
+        If either of the wait flags are set, but the notebook or script crashes during the operation, note that
+        the full explorer creation procession is still operating and the caller can simpply look up the
+        embedding space and call it's "get_training_jobs" and "get_model_jobs" method to inspect the progress.
+
+        Arguments:
+            project: FeatrixProject or str id of the project to use instead of self.current_project
+            credit_budget(int): the default credit budget for the training
+            files: a list of dataframes or paths to files to upload and associate with the project
+                        (optional - if you already associated files with the project, this is redundant)
+            wait_for_model_jobs(bool): wait for the model jobs to be created and return a list of these jobs.
+            wait_for_completion(bool): make this synchronous, printing out status messages while waiting for the
+                                    training to complete
+            **kwargs:  additional arguments for the ESCreate args, if any
+
+        Returns:
+            Tuple(FeatrixModel, Job, Job) -- the featrix model and the jobs associated with training the model
+                         if wait_for_completion is True, the model returned will be fully trained, otherwise the
+                         caller will need ot check on the progress of the jobs and update the model when they are
+                         complete.
+        """
+        if wait_for_completion:
+            wait_for_model_jobs = True
+
+        if project is not None:
+            try:
+                self.current_project = project
+            except FeatrixException:
+                from bson import ObjectId
+
+                if ObjectId.is_valid(project):
+                    raise
+                else:
+                    if files is None:
+                        raise FeatrixException(
+                            f"Can not create a project named {project} and train a "
+                            f"neural function without data files"
+                        )
+                    self.current_project = FeatrixProject.new(self, project, project_type=ProjectType.EXPLORER)
+            except Exception as e:
+                print(f"Exception {e} happened!")
+                raise
+
+        if files is not None:
+            self.upload_files(files, associate=self.current_project)
+
+        if self.current_project.ready(wait_for_completion=wait_for_completion) is False:
+            raise FeatrixException("Project not ready for training, datafiles still being processed")
+
+        # The API will return the jobs that are in progress -- typically just the embedding space training
+        # unless the embedding space is already trained, then it will return the list of model jobs (one
+        # for each field)
+        es, jobs = self.current_project.new_explorer(
+            f"{self.current_project.name} Explorer",
+            training_credits_budgeted=credit_budget,
+            **kwargs
+        )
+        if es.training_state != TrainingState.COMPLETED:
+            if wait_for_model_jobs is False:
+                # Return the EmbeddingSpace and the ES Training job
+                return es, jobs[0]
+            # Wait for the ES training to finish, and the model jobs to be scheduled.
+            # The first job will be the es training (if there is a second, it will be the wait-for-training
+            # that kicks off the model creations)
+            jobs[0].wait_for_completion("Embedding Space Training: ")
+            es = es.by_id(es.id, self)
+            tj = jobs[1] if len(jobs) > 1 and jobs[1].job_type == JobType.JOB_TYPE_ES_WAIT_TO_TRAIN else None
+            jobs = es.explorer_training_jobs(wait_for_creation=True, wait_for_training_job=tj)
+            # Note that we were waiting for the watcher to finish, so make sure there weren't updates to the ES
+            es = es.by_id(str(es.id), self)
+
+        # Now jobs will be the jobs of the model trainings and es will be the trained es if we get here
+        if wait_for_completion:
+            FeatrixJob.wait_for_jobs(self, jobs, f"Explorer Model Training ({len(jobs)} jobs)")
+            models = es.models(force=True)
+            return es, models
+        return es, jobs
 
     def predictions(self):
         if self.current_model is None:
