@@ -113,6 +113,21 @@ class FeatrixModel(Model):
         return jobs[0], jobs[1]
 
     def predict(self, query: Dict | List[Dict], wait_for_job: bool = True):
+        """
+        Predict a probability distribution on a given model in a embedding space.
+
+        Query can be a list of dictionaries or a dictionary for a single query.
+
+        Parameters
+        ----------
+        query : dict or [dict]
+            Either a single parameter or a list of parameters.
+            { col1: <value> }, { col2: <value> }
+
+        Returns
+        -------
+        A dictionary of values of the model's target_column and the probability of each of those values occurring.
+        """
         if isinstance(query, dict):
             query = [query]
         predict_args = ModelFastPredictionArgs(model_id=str(self.id), query=query)
@@ -128,6 +143,9 @@ class FeatrixModel(Model):
         return fp.result
 
     def predictions(self, force: bool = False):
+        """
+        Retrieve historical predictions.
+        """
         from .featrix_predictions import FeatrixPrediction
 
         since = None

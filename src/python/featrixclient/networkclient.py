@@ -1,7 +1,7 @@
 #  -*- coding: utf-8 -*-
 #############################################################################
 #
-#  Copyright (c) 2024, Featrix, Inc. All rights reserved.
+#  Copyright (c) 2024, Featrix, Inc.
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"), to deal
@@ -104,7 +104,7 @@ class Featrix:
         """
         Create a Featrix client object.
 
-        The caller has to provide authentication credentials. These are API Keys, generated on the Featrix website
+        The caller has to provide authentication credentials. These are API Keys, generated in the Featrix UI, found at
         https://app.featrix.com.  An API Key will consist of a client id and a client secret.  Both are needed to
         use this interface.  The credentials can be provided to this interface three different ways (only one is
         required!):
@@ -388,7 +388,7 @@ class Featrix:
     @property
     def current_neural_function(self):
         """
-        Get teh current active neural function (aka model), if there is one.
+        Get the current active neural function (aka model), if there is one.
 
         Returns
         -------
@@ -439,12 +439,16 @@ class Featrix:
         self, neural_function_id, project: Optional[FeatrixProject | str] = None
     ) -> FeatrixModel:
         """
+        Given a neural function id (and optionally, a project id), return the object that represents
+        that neural function. You can then run predictions on that neural function.
 
         Parameters
         ----------
+        neural_function_id: str - identifier returned when creating the neural function.
 
         Returns
         -------
+        A FeatrixModel object (aka a neural function).  See help() on the returned object to see the available functions.
 
         """
         if project is not None:
@@ -491,7 +495,10 @@ class Featrix:
             wait_for_completion: bool = False
     ) -> Tuple["FeatrixEmbeddingSpace", FeatrixJob]:  # noqa forward ref
         """
+        Create a new embedding space on a data source, such as a dataframe or a file. The data source
+        should include all target columns that you might want to predict.
 
+        You do not need to clean nulls or make the data numeric; simply pass in strings or missing values.
 
         Arguments:
             project: FeatrixProject or str id of the project to use instead of self.current_project
