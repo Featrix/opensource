@@ -3,6 +3,12 @@
 TOP                     := $(CURDIR)
 PYTHON_SRC              := $(TOP)/src/python
 DIST                    := $(PYTHON_SRC)/dist
+# Docs
+SPHINXOPTS    			?=
+SPHINXBUILD   			?= sphinx-build
+SOURCEDIR     			= src/python/docs
+BUILDDIR      			= src/python/docs_build
+
 
 # Function to remove directories and files
 define rmrf
@@ -11,7 +17,21 @@ define rmrf
 endef
 
 # PHONY targets
-.PHONY: clean prepare-env requirements python-package
+.PHONY: clean prepare-env requirements python-package help Makefile
+
+
+# Put it first so that "make" without argument is like "make help".
+help:
+	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
+.PHONY: help Makefile
+
+# Catch-all target: route all unknown targets to Sphinx using the new
+# "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
+%: Makefile
+	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
+
 
 clean:
 	$(call rmrf,.eggs)
@@ -19,6 +39,7 @@ clean:
 	$(call rmrf,build)
 	$(call rmrf,prof/)
 	$(call rmrf,$(DIST))
+	$(call rmrf,$(BUILDDIR))
 	@find . -name '*.py,cover' | xargs rm -f
 	@find . -name '*.pyc' | xargs rm -f
 	@find . -name '__pycache__' | xargs rm -rf

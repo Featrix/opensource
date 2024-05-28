@@ -31,6 +31,12 @@ from __future__ import annotations
 from .networkclient import __version__ as __version__
 from .networkclient import Featrix  # noqa F401
 from .networkclient import new_client  # noqa F401
+from .featrix_project import FeatrixProject  # noqa F401
+from .featrix_embedding_space import FeatrixEmbeddingSpace  # noqa F401
+from .featrix_model import FeatrixModel  # noqa F401
+from .featrix_upload import FeatrixUpload  # noqa F401
+from .featrix_job import FeatrixJob  # noqa F401
+from .featrix_predictions import FeatrixPrediction  # noqa F401
 
 """
 Featrix Client Docstring Test

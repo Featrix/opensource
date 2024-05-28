@@ -42,7 +42,12 @@ from .models import Prediction
 
 
 class FeatrixPrediction(Prediction):
+    """
+    Represents a prediction that was run against a neural function (aka predictive model).
+    """
     fc: Optional[Any] = Field(default=None, exclude=True)
+    """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
+
 
     @classmethod
     def all(
@@ -50,6 +55,16 @@ class FeatrixPrediction(Prediction):
         fc: Any,
         model: Optional["FeatrixModel" | str] = None,  # noqa F821
     ) -> List[FeatrixPrediction]:
+        """
+        Get all predictions for a given model.
+
+        Args:
+            fc: Featrix class instance
+            model: Model instance or model_id
+
+        Returns:
+            List[FeatrixPrediction]: List of predictions
+        """
         from .featrix_model import FeatrixModel
 
         model_id = model.id if isinstance(model, FeatrixModel) else model
@@ -57,6 +72,15 @@ class FeatrixPrediction(Prediction):
         return ApiInfo.reclass(cls, predictions, fc=fc)
 
     def match(self, **kwargs) -> Tuple[bool, int]:
+        """
+        Check the list of queries in this prediction to see if it matches the query provided in kwargs.
+
+        Args:
+            **kwargs: Query to match (key=value pairs for a single query)
+
+        Returns:
+            Tuple[bool, int]: True if the query matches, and the index of the query in the list of queries
+        """
         ks = set(kwargs.keys())
         for idx, query in enumerate(self.query):
             ps = set(query.keys())
@@ -70,6 +94,3 @@ class FeatrixPrediction(Prediction):
             else:
                 return True, idx
         return False, -1
-
-    def fast_prediction(self, query: Dict | List[Dict]) -> Prediction:
-        pass

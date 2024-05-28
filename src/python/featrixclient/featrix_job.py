@@ -37,7 +37,7 @@ import warnings
 import time
 
 from IPython.display import clear_output
-from pydantic import Field
+from pydantic import Field, PrivateAttr
 
 from .api_urls import ApiInfo
 from .exceptions import FeatrixException
@@ -59,23 +59,45 @@ from .utils import display_message
 
 
 class FeatrixJob(Job):
+    """
+    This represents a job that the Featrix server is running on one of its neural compute clusters on your behalf.
+    It contains full details about the job, including, if it is still running, the incremental status of the job
+    itself.
+    """
     fc: Optional[Any] = Field(default=None, exclude=True)
-    latest_job_result: Optional[JobResults] = None
+    """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
+    # _latest_job_result: Optional[JobResults] = PrivateAttr(default=None)
 
     @classmethod
     def by_id(cls, job_id: str, fc) -> "FeatrixJob":
+        """
+        REtrieve a job by its job ID from the server, ignoring cache
+
+        Arguments:
+            job_id: str: the job ID to retrieve
+            fc: Featrix: the Featrix class that is making the request
+
+        Returns:
+            FeatrixJob new instance of job
+        """
         results = fc.api.op("jobs_get", job_id=job_id)
         # print(f"Got {results} from job get")
         # print(f"job meta is {results.job_meta}")
         job = ApiInfo.reclass(cls, results.job_meta, fc=fc)
-        job.job_results = results
+        # job._latest_job_results = results
         return job
 
-    def job_results(self):
-        return self.latest_job_result
+    # def job_results(self):
+    #     """
+    #     Return the lateest job results for this job.  This will be None if the job is still running.
+    #     """
+    #     return self._latest_job_result
 
-    def message(self):
-        return self.latest_job_result.message if self.latest_job_result else None
+    # def message(self):
+    #     """
+    #
+    #     """
+    #     return self._latest_job_result.message if self._latest_job_result else None
 
     def check(self):
         return FeatrixJob.by_id(str(self.id), self.fc)
@@ -87,6 +109,19 @@ class FeatrixJob(Job):
             msg: str = "Waiting for jobs: ",
             cycle: int = 5
     ) -> List[FeatrixJob]:
+        """
+        Given a list of FeatrixJob's, wait for all of them to be completed, periodically updating their status on
+        the console.
+
+        Arguments:
+            fc: Featrix: the Featrix class that is making the request
+            jobs: List[FeatrixJob]: the list of jobs to wait for
+            msg: str: the message to display on the console
+            cycle: int: the number of seconds to wait between updates
+
+        Returns:
+            List[FeatrixJob]: the updated list of jobs that have been completed
+        """
         cnt = len(jobs)
         while True:
             done = errors = 0
@@ -126,43 +161,25 @@ class FeatrixJob(Job):
         return job
 
     @classmethod
-    def create_embedding(
-        cls,
-        fc,
-        project,  # FeatrixProject
-        **kwargs,
-    ):
-        es_create = ESCreateArgs(project_id=str(project.id), **kwargs)
-        result = fc.api.op("jobs_es_create", es_create)
-        job = cls.from_job_dispatch(result, fc)
-        return job
-
-    @classmethod
-    def run_prediction(
-        cls,
-        fc: Any,
-        model: "FeatrixModel",  # noqa F821 forward ref
-        query: List[Dict] | Dict,
-    ):
-        from .featrix_model import FeatrixModel
-
-        if isinstance(query, dict):
-            query = [query]
-        predict = ModelPredictionArgs(model_id=str(model.id), query=query)
-        result = fc.api.op("job_model_prediction", predict)
-        job = cls.from_job_dispatch(result, fc)
-        return job
-
-    @classmethod
     def check_guardrails(
         cls,
         fc: Any,
         model: "FeatrixModel",  # noqa F821 forward ref
         query: List[Dict] | Dict,
         issues_only: bool = False,
-    ):
-        from .featrix_model import FeatrixModel
+    ) -> "FeatrixJob":
+        """
+        Kick off a Check Guardrails on a query or list of queries.
 
+        Arguments:
+            fc: Featrix: the Featrix class that is making the request
+            model: FeatrixModel: the model to check guardrails on
+            query: List[Dict] | Dict: the query or list of queries to check
+            issues_only: bool: if True, only return the issues, not the full results
+
+        Returns:
+            FeatrixJob: the job that is running the guardrails check
+        """
         check = GuardRailsArgs(
             model_id=str(model.id), issues_only=issues_only, query=query
         )
@@ -179,18 +196,3 @@ class FeatrixJob(Job):
         return FeatrixJob.by_id(str(jd.job_id), fc)
 
 
-"""
-    job_es_create: Api = Api('/neural/embedding_space/', ESCreateArgs, JobDispatch, False)
-    job_es_train_more: Api = Api('/neural/embedding_space/trainmore', TrainMoreArgs, JobDispatch, False)
-    job_model_create: Api = Api('/neural/embedding_space/train-downstream-model', ModelCreateArgs, JobDispatch, False)
-    job_model_prediction: Api = Api('/neural/embedding_space/run-model-prediction',
-                                    ModelPredictionArgs, JobDispatch, False)
-    job_model_guardrails: Api = Api('/neural/embedding_space/check-guardrails', GuardRailsArgs, JobDispatch, False)
-    job_encode_records: Api = Api('/neural/embedding_space/run-encode-records', EncodeRecordsArgs, JobDispatch, False)
-    job_es_create_db: Api = Api('/neural/embedding_space/create-database', CreateDBArgs, JobDispatch, False)
-    job_db_cluster: Api = Api('/neural/embedding_space/run-db-cluster', DBClusterArgs, JobDispatch, False)
-    job_db_nn_query: Api = Api('/neural/embedding_space/nn-query', NNQueryArgs, JobDispatch, False)
-    job_chained_new_neural_function: Api = Api('/neural/project/new-neural-function',
-                                               NewNeuralFunctionArgs, JobDispatch, False)
-                                               
-                                               """

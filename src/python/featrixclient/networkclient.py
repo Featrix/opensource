@@ -108,15 +108,15 @@ class Featrix:
         https://app.featrix.com.  An API Key will consist of a client id and a client secret.  Both are needed to
         use this interface.  The credentials can be provided to this interface three different ways (only one is
         required!):
-            1) The client_id/client_secret arguments
-            2) Having the client id and secret set in the environment variables FEATRIX_CLIENT_ID and
-                FEATRIX_CLIENT_SECRET, typically put in the users .zshrc/.bashrc or Windows environment.
-            3) Having the client id and secret set in the file ${HOME}/.featrix.key (or a file specified by
-                the key_file argument below).  The format of this file is the same as the environment, two lines
-                that contain:
+        1) The client_id/client_secret arguments
+        2) Having the client id and secret set in the environment variables FEATRIX_CLIENT_ID and
+        FEATRIX_CLIENT_SECRET, typically put in the users .zshrc/.bashrc or Windows environment.
+        3) Having the client id and secret set in the file ${HOME}/.featrix.key (or a file specified by
+        the key_file argument below).  The format of this file is the same as the environment, two lines
+        that contain:
 
-                FEATRIX_CLIENT_ID=xxxxxxxxxx
-                FEATRIX_CLIENT_SECRET=xxxxxxxxxx
+           FEATRIX_CLIENT_ID=xxxxxxxxxx
+           FEATRIX_CLIENT_SECRET=xxxxxxxxxx
 
         To generate an API Key, register an account at https://app.featirx.com, and once logged in, under
         your Profile menu in the top right corner, select ``Manage API Keys``.
@@ -178,7 +178,13 @@ class Featrix:
     @property
     def current_project(self) -> FeatrixProject:
         """
-        Return the current project which is being used by the class.
+        Return or set the current project which is being used by class operation. Most operations will operate on the
+        current project if a project isn't specifically provided.  When setting the current project, the caller can
+        provide a FeatrixProject object or the ID of the project (FeatrixProject.id).  If the project id isn't
+        found internally in the project cache, the call will attempt to refresh the project list.
+
+        Raise:
+        This can raise a FeatrixException if the caller uses the setting with an invalid project id.
         """
         return self._current_project
 
@@ -220,9 +226,18 @@ class Featrix:
         self._current_project.embedding_spaces()
 
     def get_project_by_id(self, project_id: str) -> FeatrixProject:
+        """
+        Find a project in the projects cache by its id (FeatrixProject.id)
+
+        Returns:
+            FeatrixProject: The project object found in the cache
+        """
         return self._projects.get(str(project_id))
 
     def drop_project(self, project_id: str) -> None:
+        """
+        Delete the project referenced by id (FeatrixProject.id) from the system.
+        """
         try:
             del self._projects[str(project_id)]
             if str(self._current_project.id) == str(project_id):
@@ -236,14 +251,28 @@ class Featrix:
         name: Optional[str] = None,
         user_meta: Optional[Dict] = None,
         tags: Optional[List[str]] = None,
-    ):
+    ) -> FeatrixProject:
         """
-        Create a new project and make it the current project using the name provided.
+        Create a new project and make it the current project using the name provided. It creates the project
+        and sets the current project of the Featrix class to that project.
+
+        Arguments:
+            name:  Optional name of the project, otherwise it will be auto-named
+            user_meta: Optional dictionary of user metadata to associate with the project
+            tags: Optional list of tags to associate with the project
+
+        Returns:
+            FeatrixProject - the new project object created
+
         """
         self.current_project = FeatrixProject.new(self, name, user_meta=user_meta, tags=tags)
         return self.current_project
 
-    def get_uploads(self):
+    def get_uploads(self) -> None:
+        """
+        Get all the FeatrixUpload entries that describe files the user has uploaded to the Featrix system.
+        These are stored in the Featrix cache, and can be retrieved by the `get_upload` method.
+        """
         uploads = FeatrixUpload.all(self)
         for upload in uploads:
             self._library[upload.filename] = upload
@@ -251,7 +280,7 @@ class Featrix:
 
     def get_upload(self, upload_id: str = None, filename: str = None, reload: bool = True) -> FeatrixUpload:
         """
-        Return the upload object (FeatrixUpload) for the given upload id or filename.
+        Return the FeatrixUpload object (FeatrixUpload) for the given upload id or filename.
 
         Args:
             upload_id (str): Upload id of an upload to find in the library (FeatrixUpload.id)
@@ -289,7 +318,24 @@ class Featrix:
             uploads: List[pd.DataFrame | str | Path],
             associate: bool | FeatrixProject = False,
             labels: Optional[List[str | None]] = None,
-    ):
+    ) -> List[FeatrixUpload]:
+        """
+        Upload a list of files to the Featrix system and possibly associate them with a project.
+        The uploads list can be a list of filenames (by string or `pathlib.Path`) or `pandas.DataFrame objects`,
+        or both.  If the `labels` list is not provided, the filenames will be used as the labels for the uploads,
+        or an auto-generated label will be used for the DataFrame uploads.
+
+        If the associate flag is True, the uploads will be associated with the current project. If the associate is
+        set to a FeatrixProject, they will be associated with that project.
+
+        Arguments:
+            uploads: List of filenames or DataFrames to upload
+            associate: If True, associate the uploads with the current project, if a FeatrixProject, associate with that
+            labels: Optional list of labels to use for the uploads, if not provided, the filenames will be used for the
+
+        Returns:
+            List[FeatrixUpload] - the list of FeatrixUpload objects created
+        """
         upload_objects = []
         for idx, upload in enumerate(uploads):
             upload_objects.append(
@@ -320,6 +366,7 @@ class Featrix:
             associate: (bool | FeatrixProject): IF set to true, associate this upload with the current project,
                     if the field is set to a FeatrixProject, associate it with that specific project.
             label: Optional - use as filename if passed in a dataframe
+
         Returns:
             FeatrixUpload: The upload object that is created.
         """
@@ -362,7 +409,7 @@ class Featrix:
     @property
     def current_model(self) -> FeatrixModel:
         """
-        Get the current active model/neural function, if there is one.
+        Get/set the current active model/neural function property.
 
         Returns:
             FeatrixModel | None: Current active model
@@ -372,12 +419,7 @@ class Featrix:
     @current_model.setter
     def current_model(self, value: FeatrixModel) -> None:
         """
-        Set the current active model/n
-        Parameters
-        ----------
-
-        Returns
-        -------
+        Set the current active model/neural function.
 
         """
         if not isinstance(value, FeatrixModel):
@@ -388,7 +430,7 @@ class Featrix:
     @property
     def current_neural_function(self):
         """
-        Get the current active neural function (aka model), if there is one.
+        Get the current active neural function (aka model), if there is one.  Alias for `current_model` property
 
         Returns
         -------
@@ -442,13 +484,12 @@ class Featrix:
         Given a neural function id (and optionally, a project id), return the object that represents
         that neural function. You can then run predictions on that neural function.
 
-        Parameters
-        ----------
-        neural_function_id: str - identifier returned when creating the neural function.
+        Arguments:
+            neural_function_id: The id of the neural function to find
+            project: Optional project to use instead of the current project
 
-        Returns
-        -------
-        A FeatrixModel object (aka a neural function).  See help() on the returned object to see the available functions.
+        Returns:
+            FeatrixModel: The model object found
 
         """
         if project is not None:
@@ -485,6 +526,9 @@ class Featrix:
         return self.current_model
 
     get_model = get_neural_function
+    """
+    Alias for get_neural_function
+    """
 
     def create_embedding_space(
             self,
@@ -495,10 +539,21 @@ class Featrix:
             wait_for_completion: bool = False
     ) -> Tuple["FeatrixEmbeddingSpace", FeatrixJob]:  # noqa forward ref
         """
-        Create a new embedding space on a data source, such as a dataframe or a file. The data source
-        should include all target columns that you might want to predict.
+
+
+        Create a new embedding space in the current project.  If a project is passed (via a FeatrixProject or
+        id of a project), make that the current project and create the embedding space in that project.  If
+        project is not passed in, create the embedding space in the current project.
 
         You do not need to clean nulls or make the data numeric; simply pass in strings or missing values.
+
+        If the wait_for_completion flag is set, this will be synchronous and print periodic messages to the console
+        as the embedding space is trained.  Note that the jobs are enqueued and running so if the notebook is
+        interrupted, reset or crashes, the training will still complete and can be queried by using the methods later.
+
+        In either case this returns a tuple of the `FeatrixEmbeddingSpace` object and the `FeatrixJob` object that
+        created or is creating the job.  `FeatrixEmbeddingSpace.training_state` shows the state of the
+        embedding space, but the `Job` has detailed information about the current status.
 
         Arguments:
             project: FeatrixProject or str id of the project to use instead of self.current_project
@@ -510,7 +565,7 @@ class Featrix:
                                     training to complete
 
         Returns:
-            Tuple(FeatrixEmbeddingSpace, Job) -- the featrix model and the jobs associated with training the model
+            Tuple(FeatrixEmbeddingSpace, FeatrixJob) -- the featrix model and the jobs associated with training the model
                          if wait_for_completion is True, the model returned will be fully trained, otherwise the
                          caller will need ot check on the progress of the jobs and update the model when they are
                          complete.
@@ -557,18 +612,22 @@ class Featrix:
             project: Optional[FeatrixProject | str] = None,
             embedding_space: FeatrixEmbeddingSpace = None
     ):
+        """
+        Not Implemented yet.
+
+        """
         if project is not None:
             self.current_project = project
         if embedding_space is None:
-            if len(self.current_project.embedding_spaces_cache) == 0:
+            if len(self.current_project._embedding_spaces_cache) == 0:
                 self.current_project.embedding_spaces()
-            if len(self.current_project.embedding_spaces_cache) == 0:
+            if len(self.current_project._embedding_spaces_cache) == 0:
                 raise FeatrixException(f"Project {self.current_project.name} has no embedding space trained")
-            if len(self.current_project.embedding_spaces_cache) > 1:
+            if len(self.current_project._embedding_spaces_cache) > 1:
                 raise FeatrixException(f"Project {self.current_project.name} has multiple "
                                        "embedding spaces, please specify which one")
-            embedding_space = self.current_project.embedding_spaces_cache[
-                list(self.current_project.embedding_spaces_cache.keys())[0]
+            embedding_space = self.current_project._embedding_spaces_cache[
+                list(self.current_project._embedding_spaces_cache.keys())[0]
             ]
         if embedding_space.training_state != TrainingState.COMPLETED:
             raise FeatrixException(f"Embedding space training state {embedding_space.training_state} is not COMPLETED")
@@ -606,12 +665,14 @@ class Featrix:
         already training, the first job will be the last training job for that embedding space.
 
         The caller, in the case where they do not wait for completion, can follow the progress via the jobs objects
-            ```
-            model, es_training_job, nf_training_job = create_neural_function("field_name")
-            if nf_training_job.completed is False:
-                nf_training_job = nf_training_job.check()
-                print(nf_training_job.incremental_status)
-            ```
+
+        .. code-block:: python
+
+           model, es_training_job, nf_training_job = create_neural_function("field_name")
+           if nf_training_job.completed is False:
+               nf_training_job = nf_training_job.check()
+               print(nf_training_job.incremental_status)
+
 
         They can also just wait on the neural function model's field training_state to be set to
         TrainingState.COMPLETED ("trained")
@@ -784,7 +845,12 @@ class Featrix:
             return es, models
         return es, jobs
 
-    def predictions(self):
+    def predictions(self) -> List["FeatrixPrediction"]:  # noqa forward ref
+        """
+        Retrieve the predictions that have been made using the current neural function/model.
+
+        """
+        from .featrix_predictions import FeatrixPrediction  # noqa forward ref
         if self.current_model is None:
             raise FeatrixException(
                 "There is no current model, can not retrieve past predictions"

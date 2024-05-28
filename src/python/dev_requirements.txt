@@ -1,7 +1,10 @@
 # prerequisites for development
+-r requirements.txt
 packaging
 pip
 pre-commit
 setuptools
 ruff
 pytest
+sphinx-rtd-theme
+sphinx

@@ -50,12 +50,21 @@ from .models.upload import Upload
 
 
 class FeatrixUpload(Upload):
+    """
+    Represents a file upload to Featrix server for use in training.  This is the metadata of the file, including
+    the results of Featrix's analysis of the file and possible enrichments.
+    """
     fc: Optional[Any] = Field(default=None, exclude=True)
+    """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
+
 
     @classmethod
     def new(
         cls, fc: Any, filename: str | Path, user_meta: Optional[Dict] = None
     ) -> "FeatrixUpload":
+        """
+        Create a new FeatrixUpload object and upload the file to the server.
+        """
         path = Path(filename)
         if not path.exists():
             raise FileNotFoundError(f"{filename} does not exist")
@@ -66,23 +75,64 @@ class FeatrixUpload(Upload):
 
     @classmethod
     def all(cls, fc: Any) -> List["FeatrixUpload"]:
+        """
+        Get all uploads on the server
+
+        Args:
+            fc: Featrix class instance
+
+        Returns:
+            List[FeatrixUpload]: List of all uploads on the server
+        """
         results = fc.api.op("uploads_get_all")
         return ApiInfo.reclass(cls, results, fc=fc)
 
     @classmethod
     def by_id(cls, upload_id: str, fc: Any) -> "FeatrixUpload":
+        """
+        Get a specific upload by its id
+
+        Args:
+            upload_id: str: the upload id
+            fc: Featrix class instance
+
+        Returns:
+            FeatrixUpload: The upload if it exists, otherwise None
+        """
         results = fc.api.op("uploads_get", upload_id=upload_id)
         return ApiInfo.reclass(cls, results, fc=fc)
 
     @classmethod
     def by_hash(cls, hash_id: str, fc: Any) -> "FeatrixUpload":
+        """
+        Get a specific upload by its hash
+
+        Args:
+            hash_id: str: the hash id
+            fc: Featrix class instance
+
+        Returns:
+            FeatrixUpload: The upload if it exists, otherwise None
+        """
         results = fc.api.op("uploads_get_by_hash", hash_id=hash_id)
         return ApiInfo.reclass(cls, results, fc=fc)
 
     def delete(self) -> "FeatrixUpload":
+        """
+        Delete the upload from the server
+
+        Returns:
+            FeatrixUpload: The upload that was deleted
+        """
         results = self.fc.api.op("uploads_delete", upload_id=self.id)
         return ApiInfo.reclass(FeatrixUpload, results, fc=self.fc)
 
     def jobs(self):
+        """
+        Get the jobs associated with this upload
+
+        Returns:
+            List[FeatrixJob]: List of jobs associated with this upload
+        """
         results = self.fc.api.op("uploads_get_jobs", upload_id=self.id)
         return ApiInfo.reclass(FeatrixUpload, results, fc=self.fc)
