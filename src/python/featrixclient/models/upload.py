@@ -60,6 +60,7 @@ class Upload(FeatrixBase):
     num_rows: int = Field(default=-1)
     num_cols: int = Field(default=-1)
     column_names: List[str] = Field(default_factory=list)
+    enriched_column_names: List[str] = Field(default_factory=list)
 
     # MD5 hash of file
     file_hash: str
@@ -67,6 +68,8 @@ class Upload(FeatrixBase):
     load_errors: Dict = Field(default_factory=dict)
     post_processing_job_id: Optional[PydanticObjectId] = None
     sample_data: List[Dict[str, Any]] = Field(default_factory=list)
+    sample_rows: int = Field(default=0)
+    sample_percent: float = Field(default=1.0)
 
     user_meta: Dict[str, Any] = Field(default_factory=dict)
 
@@ -90,11 +93,12 @@ class Upload(FeatrixBase):
     smart_enrichment_results: Optional[Dict] = None
     smart_enrichment_last_start_time: Optional[datetime] = None
     smart_enrichment_last_end_time: Optional[datetime] = None
+    #smart_enrichment_columns: Optional[List[str]] = None
 
     # We can have up to 3 files in an upload, where the user has pushed one file
     # and then we split things.
     test_split_ratio: float = 0.2
-    train_split_ratio: float = 0.6  # actual numbers will vary
+    train_split_ratio: float = 0.6          # actual numbers will vary
     validation_split_ratio: float = 0.2
 
     test_split_file_hash: Optional[str] = None

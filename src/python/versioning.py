@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #  -*- coding: utf-8 -*-
 #############################################################################
 #
@@ -27,58 +28,41 @@
 #  Yes, you can see this file, but Featrix, Inc. retains all rights.
 #
 #############################################################################
-from __future__ import annotations
-
 from datetime import datetime
-from enum import Enum
-from typing import Optional
+from pathlib import Path
 
-from pydantic import BaseModel
-from pydantic import EmailStr
-from pydantic import Field
-
-from .featrix_base import FeatrixBase
-from .pydantic_objectid import PydanticObjectId
+def write_py_version(file, major, minor, iteration):
+    file.write(f"version = \"{major}.{minor}.{iteration}\"\n")
+    file.write(f"publish_time = \"{datetime.utcnow().isoformat()}\"\n")
+    file.write("__author__ = \"Featrix, Inc.\"\n")
 
 
-class InviteState(Enum):
-    invited = "invited"
-    accepted = "accepted"
+def increment_version():
+    home = Path(__file__).parent
+    version_path = home / "VERSION"
+    py_version_path = home / "featrix/version.py"
+
+    new_major = datetime.now().year
+    new_minor = datetime.now().month * 100 + datetime.now().day
+    with version_path.open("r") as f:
+        version = f.read().strip().split(".")
+        major, minor, iteration = int(version[0]), int(version[1]), int(version[2])
+        if major != new_major or minor != new_minor:
+            major, minor, iteration = new_major, new_minor, 1
+        else:
+            iteration += 1
+    version_path.write_text(f"{major}.{minor}.{iteration}")
+
+    py_version = py_version_path.read_text().split("\n")
+    with py_version_path.open("w") as _f:
+        for line in py_version:
+            if line.startswith("#"):
+                _f.write(line + "\n")
+            else:
+               write_py_version(_f, major, minor, iteration)
+        else:
+            write_py_version(_f, major, minor, iteration)
 
 
-class Invitation(FeatrixBase):
-    invited_user_email: EmailStr
-    invite_email_sent_at: datetime = Field(default_factory=datetime.utcnow)
-    invite_accepted_at: datetime | None = None
-    invite_state: InviteState = InviteState.invited
-    # Make the user an admin when they accept the initiation
-    admin_invite: bool = False
-    invited_by: PydanticObjectId
-    organization_id: PydanticObjectId
-
-
-class InviteUserRequest(BaseModel):
-    email: EmailStr
-    admin_access: bool
-
-
-class InviteUserResponse(BaseModel):
-    status: InviteState
-    email_sent: bool
-    email_error: Optional[str] = None
-
-
-class IsInvitedResponse(BaseModel):
-    invited: bool
-    invitation: Invitation | None
-
-
-class InvitationBrief(BaseModel):
-    invited_user_email: EmailStr
-    invite_email_sent_at: datetime = Field(default_factory=datetime.utcnow)
-    invite_accepted_at: datetime | None = None
-    invite_state: InviteState = InviteState.invited
-    # Make the user an admin when they accept the initiation
-    admin_invite: bool = False
-    invited_by: PydanticObjectId
-    organization_id: PydanticObjectId
+if __name__ == "__main__":
+    increment_version()

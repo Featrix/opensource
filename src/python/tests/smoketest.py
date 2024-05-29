@@ -482,24 +482,30 @@ def main():
     ap.add_argument("--no-clean", action="store_true", help="Run with this client secret")
     ap.add_argument("--no-clean-on-error", "-E", action="store_true",
                     help="Do not clean up the uploads and projects if there is an error")
-
+    ap.add_argument("--skip-uploads", action="store_true", help="Skip the upload tests")
+    ap.add_argument("--skip-nf", action="store_true", help="Skip the neural function tests")
+    ap.add_argument("--skip-es", action="store_true", help="Skip the embedding space tests")
+    ap.add_argument("--skip-explorer", action="store_true", help="Skip the explorer tests")
     args = ap.parse_args()
     fc = get_client(args.environment, args.client_id, args.client_secret)
 
     start = datetime.utcnow()
     try:
-        test_uploads(fc)
-        print(f"Finished Upload testing in {(datetime.utcnow() - start).total_seconds()} seconds.")
-        substart = datetime.utcnow()
-        test_nf(fc)
-        print(f"Finished Neural Function testing in {(datetime.utcnow() - substart).total_seconds()} seconds.")
-        substart = datetime.utcnow()
-        test_es(fc)
-        print(f"Finished Embedding Space testing in {(datetime.utcnow() - substart).total_seconds()} seconds.")
-
-        substart = datetime.utcnow()
-        test_explorer(fc)
-        print(f"Finished Explorer creation testing in {(datetime.utcnow() - substart).total_seconds()} seconds.")
+        if not args.skip_uploads:
+            test_uploads(fc)
+            print(f"Finished Upload testing in {(datetime.utcnow() - start).total_seconds()} seconds.")
+        if not args.skip_nf:
+            substart = datetime.utcnow()
+            test_nf(fc)
+            print(f"Finished Neural Function testing in {(datetime.utcnow() - substart).total_seconds()} seconds.")
+        if not args.skip_es:
+            substart = datetime.utcnow()
+            test_es(fc)
+            print(f"Finished Embedding Space testing in {(datetime.utcnow() - substart).total_seconds()} seconds.")
+        if not args.skip_explorer:
+            substart = datetime.utcnow()
+            test_explorer(fc)
+            print(f"Finished Explorer creation testing in {(datetime.utcnow() - substart).total_seconds()} seconds.")
         print(f"Smoke test complete in {(datetime.utcnow() - start).total_seconds()} seconds.")
 
     except Exception as e:

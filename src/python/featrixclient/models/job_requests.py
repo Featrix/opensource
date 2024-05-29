@@ -254,6 +254,43 @@ class ESCreateArgs(JobArgs):
     # preallocated_embedding_space_record_id: Optional[PydanticObjectId]
 
 
+class ESCreateProjectionArgs(JobArgs):
+    """
+    Create a projection json from the embedding space given
+    """
+
+    job_type: JobType = Field(
+        default=JobType.JOB_TYPE_ES_CREATE_PROJECTION,
+        frozen=True,
+        description="A Embedding Space Projection Creation Job. The JobType should not be changed",
+    )
+    project_id: Optional[PydanticObjectId] = Field(
+        default=None,
+        description=" The ID of the project in which the targeted embedding space exists",
+        title="Project ID",
+    )
+    # If we already have an skeleton embedding space in the db, pass it down.
+    embedding_space_id: Optional[PydanticObjectId] = Field(
+        default=None,
+        description="The Embedding Space id of the Embedding Space from which to create the projection",
+        title="Embedding Space ID",
+    )
+
+
+class HaystackProcessingArgs(JobArgs):
+    job_type: JobType = Field(
+        default=JobType.JOB_TYPE_HAYSTACK_PROCESSING,
+        frozen=True,
+        description="Run Haystack processing on a project.",
+    )
+    project_id: Optional[PydanticObjectId] = Field(
+        default=None,
+        description="The ID of the project",
+        title="Project ID",
+    )
+    config: Optional[dict] = None
+
+
 class TrainMoreArgs(JobArgs):
     """
     This job is used to continue the training of an embedding space.

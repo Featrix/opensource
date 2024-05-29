@@ -118,6 +118,7 @@ class JobMeta(FeatrixBase):
     chained_job_id: Optional[PydanticObjectId] = None
 
     working_directory: Optional[str] = None
+    working_host: Optional[str] = None
 
 
 class JobInfoResponse(FModel):

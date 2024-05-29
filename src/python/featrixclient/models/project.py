@@ -29,6 +29,7 @@
 #############################################################################
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
 from typing import Any
 from typing import Dict
@@ -76,6 +77,19 @@ class ProjectType(Enum):
     SDK = "sdk"
     HAYSTACK = "haystack"
     EXPLORER = "explorer"
+
+
+class InvoiceState(Enum):
+    CREATED = "created"
+    PAID = "paid"
+    CANCELLED = "cancelled"
+
+
+class ProjectInvoiceRecord(BaseModel):
+    stripe_invoice_id: str
+    state: InvoiceState
+    date: datetime
+    training_complete: bool
 
 
 class Project(FeatrixBase):

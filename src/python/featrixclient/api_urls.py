@@ -206,8 +206,9 @@ class ApiInfo(BaseModel):
         "/neural/feeds/create", FeedCreateArgs, Feed, False
     )
     feeds_create_event: Api = Api("/neural/feeds/{feed_public_id}", None, str, False)
+    # Create ES will produce a create-embedding and create-projection
     job_es_create: Api = Api(
-        "/neural/embedding_space/", ESCreateArgs, JobDispatch, False
+        "/neural/embedding_space/", ESCreateArgs, JobDispatch, True
     )
     job_es_train_more: Api = Api(
         "/neural/embedding_space/trainmore", TrainMoreArgs, JobDispatch, False

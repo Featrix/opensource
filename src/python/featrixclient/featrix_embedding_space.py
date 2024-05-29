@@ -142,20 +142,22 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             **kwargs
         )
 
-        dispatch = fc.api.op("job_es_create", es_create_args)
-        job = FeatrixJob.from_job_dispatch(dispatch, fc)
+        dispatches = fc.api.op("job_es_create", es_create_args)
+        jobs = [FeatrixJob.from_job_dispatch(dispatch, fc) for dispatch in dispatches]
+
         if wait_for_completion:
-            while job.finished is False:
-                time.sleep(5)
-                job = job.check()
-                display_message(
-                    "Training: {job.incremental_status.message if job.incremental_status is not None else ''}"
-                )
-            if job.error:
-                raise FeatrixException(f"Failed to train embedding space {job.embedding_space_id}: {job.error_msg}")
-        es = FeatrixEmbeddingSpace.by_id(job.embedding_space_id, fc)
+            for job in jobs:
+                while job.finished is False:
+                    time.sleep(5)
+                    job = job.check()
+                    display_message(
+                        f"{job.job_type}: {job.incremental_status.message if job.incremental_status is not None else ''}"
+                    )
+                if job.error:
+                    raise FeatrixException(f"Failed to train embedding space {job.embedding_space_id}: {job.error_msg}")
+        es = FeatrixEmbeddingSpace.by_id(jobs[-1].embedding_space_id, fc)
         es.fc = fc
-        return es, job
+        return es, jobs[0]
 
     @classmethod
     def all(cls, fc) -> List["FeatrixEmbeddingSpace"]:

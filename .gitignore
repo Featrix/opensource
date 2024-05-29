@@ -139,3 +139,4 @@ notebooks/testing.ipynb
 *.code-workspace
 *.key
 
+/src/python/docs_build/

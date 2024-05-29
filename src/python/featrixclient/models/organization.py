@@ -39,6 +39,7 @@ from pydantic import Field
 
 from .featrix_base import FeatrixBase
 from .fmodel import FModel
+from .pydantic_objectid import PydanticObjectId
 
 
 class Features(Enum):
@@ -92,3 +93,9 @@ class UpdatedResponse(FModel):
     api_key: Optional[bool] = None
     invitation: Optional[bool] = None
     job_meta: Optional[bool] = None
+
+
+class PaymentIntent(BaseModel):
+    client_secret: str
+    organization_id: PydanticObjectId | str
+    user_id: PydanticObjectId | str

@@ -40,6 +40,7 @@ class JobType(str, Enum):
 
     JOB_TYPE_ES_TRAIN_MORE = "embedding-space-train-more"
     JOB_TYPE_ES_CREATE = "embedding-space-create"
+    JOB_TYPE_ES_CREATE_PROJECTION = "embedding-space-projection-create"
     JOB_TYPE_ES_WAIT_TO_TRAIN = "embedding-space-waiting-for-training"
     JOB_TYPE_ES_CREATE_FROM_DS = "embedding-space-create-from-data-space"
     JOB_TYPE_ES_CREATE_DB = "embedding-space-create-database"
@@ -57,6 +58,7 @@ class JobType(str, Enum):
     JOB_TYPE_PROCESS_SMART_ENRICHMENT = "process-smart-enrichment"
     # JOB_TYPE_DETECT_ENCODERS     = "detect-encoders"
     JOB_TYPE_ES_DISTANCE = "embedding-space-distance"
+    JOB_TYPE_HAYSTACK_PROCESSING = "haystack-processing"
 
 
 class ChainedJobType(str, Enum):

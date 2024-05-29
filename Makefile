@@ -31,6 +31,8 @@ help:
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
+version:
+	@python3 $(PYTHON_SRC)/versioning.py
 
 
 clean:
@@ -53,5 +55,11 @@ prepare-env:
 requirements:
 	pip install -r $(PYTHON_SRC)/requirements.txt
 
-python-package:
-	(cd $(PYTHON_SRC); python3 setup.py sdist)
+python-package: version
+	(cd $(PYTHON_SRC); python3 setup.py sdist bdist_wheel)
+
+pypi-test: python-package
+	(cd $(PYTHON_SRC); python3 -m twine upload --repository-url https://test.pypi.org/legacy/ dist/*)
+
+pypi: python-package
+	(cd $(PYTHON_SRC); python3 -m twine upload dist/*)
