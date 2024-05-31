@@ -1,4 +1,4 @@
-Welcome to Featrix!
+Welcome to Featrix!
 
 Featrix is a data gateway to create ML models for structured data with no data preparation on your part. Featrix comes with a Python client library for ML engineers and data scientists to work with any structured data source, including Pandas dataframes. Featrix is powered by a hosted SaaS or private Docker containers deployed on site in private clouds with an enterprise license.
 
