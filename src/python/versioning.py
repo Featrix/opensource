@@ -40,7 +40,7 @@ def write_py_version(file, major, minor, iteration):
 def increment_version():
     home = Path(__file__).parent
     version_path = home / "VERSION"
-    py_version_path = home / "featrix/version.py"
+    py_version_path = home / "featrixclient/version.py"
 
     new_major = datetime.now().year
     new_minor = datetime.now().month * 100 + datetime.now().day
@@ -59,7 +59,8 @@ def increment_version():
             if line.startswith("#"):
                 _f.write(line + "\n")
             else:
-               write_py_version(_f, major, minor, iteration)
+                write_py_version(_f, major, minor, iteration)
+                break
         else:
             write_py_version(_f, major, minor, iteration)
 

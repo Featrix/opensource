@@ -74,9 +74,9 @@ from .exceptions import FeatrixException, FeatrixJobFailure
 from .featrix_model import FeatrixModel
 from .featrix_project import FeatrixProject
 from .featrix_upload import FeatrixUpload
-from .version import version, publish_host, publish_time
+from .version import version, publish_time
 
-__version__ = f"{version}: published from {publish_host} at {publish_time}"
+__version__ = f"{version}: published at {publish_time}"
 
 logger = logging.getLogger("featrix-client")
 

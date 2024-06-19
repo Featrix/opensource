@@ -1,37 +1,59 @@
+#!/usr/bin/env python3
+#  -*- coding: utf-8 -*-
+#############################################################################
+#
+#  Copyright (c) 2024, Featrix, Inc. All rights reserved.
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a copy
+#  of this software and associated documentation files (the "Software"), to deal
+#  in the Software without restriction, including without limitation the rights
+#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+#  copies of the Software, and to permit persons to whom the Software is
+#  furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included in all
+#  copies or substantial portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+#  SOFTWARE.
+#
+#
+#############################################################################
+#
+#  Yes, you can see this file, but Featrix, Inc. retains all rights.
+#
+#############################################################################
 from __future__ import annotations
 
 import argparse
-import csv
 import os
 import sys
 import time
 import traceback
 import uuid
 import tempfile
+import json
 from datetime import datetime
-from io import StringIO
 from pathlib import Path
+from typing import List, Dict
 
 import pandas as pd
 
+
 top = Path(__file__).parent.parent
-data_files = Path(__file__).parent / "data"
-
-try:
-    import featrixclient as ft
-except ImportError:
-    sys.path.insert(0, str(top))
-    print(f"path is {sys.path}")
-    import featrixclient as ft
-from featrixclient.models import TrainingState
-
-
 uploads_to_delete = []
 projects_to_delete = []
 
 
 def generate_data_file(input_file, cnt, column_name=None, output_file=None):
     df = pd.read_csv(input_file)
+    if cnt > len(df):
+        cnt = len(df)
     if column_name:
         out = df.groupby(column_name).sample(cnt//2)
     else:
@@ -42,7 +64,9 @@ def generate_data_file(input_file, cnt, column_name=None, output_file=None):
         return out
 
 
+
 def get_client(env, client_id, client_secret):
+    import featrixclient as fc
     if env == "dev":
         os.environ['FEATRIX_CLIENT_ID'] = 'bd5ec45d-1c22-49fb-9b14-b3b13b428c68' if client_id is None else client_id
         os.environ['FEATRIX_CLIENT_SECRET'] = \
@@ -59,7 +83,7 @@ def get_client(env, client_id, client_secret):
     else:
         raise RuntimeError(f"Unknown environment {env}")
 
-    fc = ft.networkclient.new_client(
+    fc = fc.networkclient.new_client(
         target_api_server,
         allow_unencrypted_http=allow_unencrypted_http,  # DEBUG
     )
@@ -87,216 +111,211 @@ def wait_for_project(project, pause=None):
     return project
 
 
-def test_uploads(fc):
+def test_uploads(fc, data_dir: Path, test_cases: List[Dict], verbose: bool = False, raise_on_error: bool = False):
+    from featrixclient.utils import featrix_wrap_pd_read_csv
+
     start = datetime.utcnow()
-    print("Testing uploads...")
-    boston = data_files / "8000-boston.csv"
-    wh = data_files / "weight-height.csv"
-
-    if not boston.exists():
-        raise RuntimeError("Data file 2000-boston.csv does not exist")
+    if verbose:
+        print("\nTesting uploads\n")
 
     with tempfile.TemporaryDirectory() as _dir:
         td = Path(_dir)
 
-        # Test basic upload
-        target_file = td / f"uploadtest-one-{uuid.uuid4()}.csv"
-        generate_data_file(boston, 1000, output_file=target_file)
-        up = fc.upload_file(target_file)
-        up = wait_for_upload(up)
-        print(f"...uploaded {up.filename} successfully in {(datetime.utcnow() - start).total_seconds()}")
-        uploads_to_delete.append(up)
+        for test_idx, test_case in enumerate(test_cases):
+            if verbose:
+                print(f"Starting Upload test case {test_idx}:\n{json.dumps(test_case, indent=4)}")
 
-        # Test basic upload dataframe
-        start = datetime.utcnow()
-        target_file = td / f"uploadtest-two-{uuid.uuid4()}.csv"
-        generate_data_file(boston, 1000, output_file=target_file)
-        df = featrix_wrap_pd_read_csv(target_file)
-        up = fc.upload_file(df, label=target_file.name)
-        up = wait_for_upload(up)
-        print(f"...uploaded {up.filename} successfully in {(datetime.utcnow() - start).total_seconds()}")
-        uploads_to_delete.append(up)
+            project = None
+            try:
+                target_file = td / f"uploadtest-{test_idx}-{uuid.uuid4()}.csv"
+                if verbose:
+                    print(f"...generating data file from {data_dir / test_case['name']}")
+                generate_data_file(data_dir / test_case['name'], test_case.get('sample_size', 1000),
+                                   output_file=target_file)
+                upload_target = featrix_wrap_pd_read_csv(target_file) if test_case.get('df', False) else target_file
+                associate = test_case.get('associate', False)
+                if not associate and not test_case.get('project', False):
+                    upload = fc.upload_file(target_file)
+                    upload = wait_for_upload(upload)
+                else:
+                    project = fc.create_project(f"Upload test project {test_idx} {uuid.uuid4()}")
+                    if associate:
+                        upload = fc.upload_file(upload_target, associate=project)
+                    else:
+                        upload = fc.upload_file(upload_target, associate=True)
+                    upload = wait_for_upload(upload)
+                    if project.ready() is False:
+                        raise RuntimeError(f"Upload was ready but project {test_idx} {project.name} was not")
 
-        # Test basic upload & associate with current project
-        start = datetime.utcnow()
-        target_file = td / f"uploadtest-three-{uuid.uuid4()}.csv"
-        p = fc.create_project(f"Upload test project one {uuid.uuid4()}")
-        generate_data_file(boston, 1000, output_file=target_file)
-        up = fc.upload_file(target_file, associate=True)
-        up = wait_for_upload(up)
-        if fc.current_project.ready() is False:
-            raise RuntimeError(f"Upload was ready but project p1 {p.name} was not")
-        print(f"...uploaded {up.filename} successfully in {(datetime.utcnow() - start).total_seconds()}")
-        uploads_to_delete.append(up)
-        projects_to_delete.append(p)
-
-        # Test upload and associate with specified project
-        start = datetime.utcnow()
-        target_file = td / f"uploadtest-four-{uuid.uuid4()}.csv"
-        p2 = fc.create_project(f"Upload test project two {uuid.uuid4()}")
-        generate_data_file(wh, 1000, output_file=target_file)
-        up = fc.upload_file(wh, associate=p2)
-        up = wait_for_upload(up)
-        fc.current_project = str(p2.id)
-        if fc.current_project.ready() is False:
-            raise RuntimeError(f"Upload was ready but project p2 {p2.name} was not")
-        print(f"...uploaded {up.filename} successfully in {(datetime.utcnow() - start).total_seconds()}")
-        uploads_to_delete.append(up)
-        projects_to_delete.append(p2)
-
-        # Test upload with dataframe and associate
-        start = datetime.utcnow()
-        target_file = td / f"uploadtest-five-{uuid.uuid4()}.csv"
-        p3 = fc.create_project(f"Upload test project three {uuid.uuid4()}")
-        generate_data_file(wh, 1000, output_file=target_file)
-        df = featrix_wrap_pd_read_csv(target_file)
-        up = fc.upload_file(df, label=target_file.name, associate=True)
-        up = wait_for_upload(up)
-        fc.current_project = str(p3.id)
-        if fc.current_project.ready() is False:
-            raise RuntimeError(f"Upload was ready but project p3 {p3.name} was not")
-        print(f"...uploaded {up.filename} successfully in {(datetime.utcnow() - start).total_seconds()}")
-        uploads_to_delete.append(up)
-        projects_to_delete.append(p3)
+                if verbose:
+                    print(f"...uploaded {upload.filename} successfully in "
+                          f"{(datetime.utcnow() - start).total_seconds()}")
+                uploads_to_delete.append(upload)
+                if project:
+                    projects_to_delete.append(project)
+            except Exception as e: # noqa
+                print("########### ERROR #########################")
+                print(f"Failed Upload test case {test_idx} with error {e}")
+                print(traceback.format_exc())
+                print("########### ERROR #########################")
+                if raise_on_error:
+                    raise
+    if verbose:
+        print(f"\nTest Uploads finished in {(datetime.utcnow()-start).total_seconds()}\n")
+    return
 
 
-def test_nf(fc):
-    animals = data_files / "animals.csv"
-
+def test_nf(fc, data_dir: Path, test_cases: List[Dict], verbose: bool = False, raise_on_error: bool = False):
+    if verbose:
+        print("\nTest Neural Function creation\n")
     with tempfile.TemporaryDirectory() as _dir:
         td = Path(_dir)
+        for test_idx, test_case in enumerate(test_cases):
+            try:
+                if verbose:
+                    print(f"Starting NF test case {test_idx}:\n{json.dumps(test_case, indent=4)}")
 
-    # 1 - create NF with explicit project and upload
+                start = datetime.utcnow()
+                target_file = td / f"nf_test_{test_idx}-{uuid.uuid4()}.csv"
+                project_name = f"NF smoke test {test_idx} - {uuid.uuid4()}"
+                automation = test_case.get("automation", "upload")
+                sample_by = test_case.get('sample_by', test_case.get('target'))
+                target_column = test_case.get('target', test_case.get('sample_by'))
+                if sample_by is None:
+                    raise RuntimeError(f"NF Test Case {test_idx} mis-defined")
+                generate_data_file(data_dir / test_case['name'], test_case.get('sample_size', 1000),
+                                   output_file=target_file, column_name=sample_by)
+
+                if automation == "full":
+                    nf, job, job_2 = fc.create_neural_function(target_fields=target_column, project=project_name,
+                                                               files=[target_file], wait_for_completion=True)
+                    project = fc.current_project
+                    upload = project.associated_uploads[0]
+                else:
+                    project = fc.create_project(f"NF smoke test 1 - {uuid.uuid4()}")
+                    upload = fc.upload_file(target_file, associate=project)
+                    project = wait_for_project(project)
+                    if verbose:
+                        print(f"......creating nf in project {project.name}")
+                    nf, job, job = fc.create_neural_function(
+                        target_fields=target_column,
+                        # try to do it with current_project if automation is upload
+                        project=project if automation == "project" else None,
+                        wait_for_completion=True
+                    )
+
+                if 'query' in test_case:
+                    nf.predict(test_case['query'])
+
+                    print(f"......created nf {nf.name} and ran prediction in "
+                          f"{(datetime.utcnow() - start).total_seconds()} secs")
+
+                uploads_to_delete.append(project)
+                projects_to_delete.append(upload)
+            except Exception as e: # noqa
+                print("########### ERROR #########################")
+                print(f"Failed test case {test_idx} with error {e}")
+                print(traceback.format_exc())
+                print("########### ERROR #########################")
+                if raise_on_error:
+                    raise
+    if verbose:
+        print(f"\nTesting Neural Function creation finished in {(datetime.utcnow()-start).total_seconds()}\n")
+    return
+
+
+def test_explorer(fc, data_dir: Path, test_cases: List[Dict], verbose: bool = False, raise_on_error: bool = False):
+    from featrixclient.models import TrainingState
+    if verbose:
+        print("\nTest Embedding Explorer creation\n")
+    with tempfile.TemporaryDirectory() as _dir:
+        td = Path(_dir)
         start = datetime.utcnow()
-        target_file = td / f"nf_test_one-{uuid.uuid4()}.csv"
-        generate_data_file(animals, 1000, output_file=target_file, column_name="Animal")
-        print("NF Test 1/3...Testing creating NF with explicit project/upload (this will take few minutes)")
-        p = fc.create_project(f"NF smoke test 1 - {uuid.uuid4()}")
-        up = fc.upload_file(target_file, associate=p)
-        # We need to refresh project -- it's in the fc so we can set it
-        # as the current or just grab the new one from cache
-        p = wait_for_project(p)
-        print(f"......creating nf in project {p.name}")
-        nf, job, job = fc.create_neural_function(target_fields="Animal", project=p, wait_for_completion=True)
-        nf.predict({'weight': 22})
-        print(f"......created nf {nf.name} and ran prediction in in "
-              f"{(datetime.utcnow() - start).total_seconds()} secs")
-        uploads_to_delete.append(up)
-        projects_to_delete.append(p)
+        try:
+            for test_idx, test_case in enumerate(test_cases):
+                if verbose:
+                    print(f"Starting Explorer test case {test_idx}:\n{json.dumps(test_case, indent=4)}")
+                target_file = td / f"nf_test_{test_idx}-{uuid.uuid4()}.csv"
+                generate_data_file(data_dir / test_case['name'], test_case.get('sample_size', 1000),
+                                   output_file=target_file, column_name=test_case.get('sample_by'))
 
-        # 2 - create NF with implicit project and upload
-        start = datetime.utcnow()
-        target_file = td / f"nf_test_two-{uuid.uuid4()}.csv"
-        generate_data_file(animals, 1000, output_file=target_file, column_name="Animal")
-        print("NF Test 2/3...Testing creating NF with implicit project/upload (this will take few minutes)")
-        p = fc.create_project(f"NF smoke test 2 - {uuid.uuid4()}")
-        up = fc.upload_file(target_file, associate=p)
-        p = wait_for_project(p)
-        print(f"......creating nf in project {p.name}")
-        nf2, job, job = fc.create_neural_function(target_fields="Animal", wait_for_completion=True)
-        nf2.predict({'weight': 15})
-        print(f"......created nf {nf2.name} and ran prediction in "
-              f"{(datetime.utcnow() - start).total_seconds()} secs")
-        uploads_to_delete.append(up)
-        projects_to_delete.append(p)
-
-        # 3 create NF in one pass (hand in upload and project
-        start = datetime.utcnow()
-        target_file = td / f"nf_test_three-{uuid.uuid4()}.csv"
-        generate_data_file(animals, 1000, output_file=target_file, column_name="Animal")
-        print("NF Test 3/3...Testing creating NF with single call including project "
-              "creation/upload data (this will take few minutes)")
-        nf3, job, job = fc.create_neural_function(target_fields="weight", project=f"NF Test 3 - {uuid.uuid4()}",
-                                                  files=[target_file], wait_for_completion=True)
-        nf3.predict({'Animal': "Dog"})
-        print(f"......created nf {nf3.name} and ran prediction in "
-              f"{(datetime.utcnow() - start).total_seconds()} secs")
-        p = fc.current_project
-        up = fc.get_upload(upload_id=p.associated_uploads[0].upload_id)
-
-        uploads_to_delete.append(up)
-        projects_to_delete.append(p)
+                project_name = f"Explorer Test {test_idx} {uuid.uuid4()}"
+                es, models = fc.create_explorer(project=project_name, files=[target_file], wait_for_completion=True)
+                project = fc.current_project
+                uploads_to_delete.append(fc.get_upload(upload_id=project.associated_uploads[0].upload_id))
+                projects_to_delete.append(project)
+                if es is None or es.training_state != TrainingState.COMPLETED:
+                    raise RuntimeError(f"Explorer failed to create embedding space (project {project_name}) "
+                                       "properly (missing or untrained).")
+                if len(models) != 3:
+                    raise RuntimeError(f"Explorer failed to create 3 Models for ES (only created {len(models)} ")
+                for model in models:
+                    if model.training_state != TrainingState.COMPLETED:
+                        raise RuntimeError(f"Explorer failed to train Model {model.name} - {model.id}")
+                print(f"......created explorer project {project_name} in "
+                      f"{(datetime.utcnow() - start).total_seconds()} secs")
+        except Exception as e: # noqa
+            print("########### ERROR #########################")
+            print(f"Failed Explorer test case {test_idx} with error {e}")
+            print(traceback.format_exc())
+            print("########### ERROR #########################")
+            if raise_on_error:
+                raise
+    if verbose:
+        print(f"\nTesting Embedding Explorer creation finished in {(datetime.utcnow()-start).total_seconds()}\n")
 
     return
 
 
-def test_explorer(fc):
-    animals = data_files / "animals.csv"
+def test_es(fc, data_dir: Path, test_cases: List[Dict], verbose: bool = False, raise_on_error: bool = False):
 
-    with tempfile.TemporaryDirectory() as _dir:
-        td = Path(_dir)
-        start = datetime.utcnow()
-        target_file = td / f"nf_test_one-{uuid.uuid4()}.csv"
-        generate_data_file(animals, 1000, output_file=target_file, column_name="Animal")
-        print("Explorer Test 1/3...Testing full create explorer (will take a few minutes)")
-        project_name = f"Animals_{uuid.uuid4()}"
-        es, models = fc.create_explorer(project=project_name, files=[target_file], wait_for_completion=True)
-        uploads_to_delete.append(fc.get_upload(upload_id=p.associated_uploads[0].upload_id))
-        projects_to_delete.append(fc.current_project)
-        if es is None or es.training_state != TrainingState.COMPLETED:
-            raise RuntimeError(f"Explorer failed to create embedding space (project {project_name}) "
-                               "properly (missing or untrained).")
-        if len(models) != 3:
-            raise RuntimeError(f"Explorer failed to create 3 Models for ES (only created {len(models)} ")
-        for model in models:
-            if model.training_state != TrainingState.COMPLETED:
-                raise RuntimeError(f"Explorer failed to train Model {model.name} - {model.id}")
-        print(f"......created explorer project {project_name} in {(datetime.utcnow() - start).total_seconds()} secs")
-    return
-
-
-def test_es(fc):
-    animals = data_files / "animals.csv"
-
+    if verbose:
+        print("\nTest Embedding Space creation\n")
     with tempfile.TemporaryDirectory() as _dir:
         td = Path(_dir)
 
-        # 1 - create NF with explicit project and upload
-        print("ES Test 1/3...Testing creating ES with explicit project/upload (this will take few minutes)")
-        target_file = td / f"es_test_one-{uuid.uuid4()}.csv"
-        generate_data_file(animals, 1000, output_file=target_file, column_name="Animal")
-        start = datetime.utcnow()
-        p = fc.create_project(f"ES smoke test 1 - {uuid.uuid4()}")
-        # This will test using a data file we already uploaded as well
-        up = fc.upload_file(target_file, associate=p)
-        p = wait_for_project(p)
-        es, job = fc.create_embedding_space(project=p, name=f"ES in {p.name}", wait_for_completion=True)
-        assert job.finished is True, f"Job {job.id} did not finish with wait_for_completion"
-        assert job.error is False, f"Job {job.id} failed"
-        print(f"......created es {es.name} in {(datetime.utcnow() - start).total_seconds()} secs")
-        uploads_to_delete.append(up)
-        projects_to_delete.append(p)
+        for test_idx, test_case in enumerate(test_cases):
+            try:
+                if verbose:
+                    print(f"Starting ES test case {test_idx}:\n{json.dumps(test_case, indent=4)}")
+                start = datetime.utcnow()
+                target_file = td / f"es_test_{test_idx}-{uuid.uuid4()}.csv"
+                project_name = f"ES smoke test {test_idx} - {uuid.uuid4()}"
+                automation = test_case.get("automation", "upload")
+                sample_by = test_case.get('sample_by')
+                if sample_by is None:
+                    raise RuntimeError(f"ES Test Case {test_idx} mis-defined, no sample_by")
+                generate_data_file(data_dir / test_case['name'], test_case.get('sample_size', 1000),
+                                   output_file=target_file, column_name=sample_by)
 
-        # 2 - create NF with implicit project and upload
-        print("ES Test 2/3...Testing creating ES with implicit project/upload (this will take few minutes)")
-        target_file = td / f"es_test_two-{uuid.uuid4()}.csv"
-        generate_data_file(animals, 1000, output_file=target_file, column_name="Animal")
-        start = datetime.utcnow()
-        p = fc.create_project(f"ES smoke test 2 - {uuid.uuid4()}")
-        up = fc.upload_file(target_file, associate=p)
-        wait_for_project(p)
-        es2, job = fc.create_embedding_space(wait_for_completion=True)
-        assert job.finished is True, f"Job {job.id} did not finish with wait_for_completion"
-        assert job.error is False, f"Job {job.id} failed"
-        print(f"......created es {es2.name} in {(datetime.utcnow() - start).total_seconds()} secs")
-        uploads_to_delete.append(up)
-        projects_to_delete.append(p)
+                if automation == "full":
+                    es, job = fc.create_embedding_space(project=project_name, name="ES test",
+                                                         files=[target_file], wait_for_completion=True)
+                    project = fc.current_project
+                    upload = project.associated_uploads[0]
+                else:
+                    project = fc.create_project(f"NF smoke test 1 - {uuid.uuid4()}")
+                    upload = fc.upload_file(target_file, associate=project)
+                    project = wait_for_project(project)
+                    if automation == 'project':
+                        es, job = fc.create_embedding_space(project=project,
+                                                                 name="ES {test_idx} test", wait_for_completion=True)
+                    else:
+                        es, job = fc.create_embedding_space(wait_for_completion=True)
+                assert job.finished is True, f"Job {job.id} did not finish with wait_for_completion"
+                assert job.error is False, f"Job {job.id} failed"
 
-        # 3 create NF in one pass (hand in upload and project
-        print("ES Test 3/3...Testing creating ES with single call including project "
-              "creation/upload data (this will take few minutes)")
-        target_file = td / f"es_test_three-{uuid.uuid4()}.csv"
-        generate_data_file(animals, 1000, output_file=target_file, column_name="Animal")
-        start = datetime.utcnow()
-        es3, job = fc.create_embedding_space(project=f"ES Testing {uuid.uuid4}", name="ES test",
-                                             files=[target_file], wait_for_completion=True)
-        assert job.finished is True, f"Job {job.id} did not finish with wait_for_completion"
-        assert job.error is False, f"Job {job.id} failed"
-        print(f"......created es {es3.name} in {(datetime.utcnow() - start).total_seconds()} secs")
-        p = fc.current_project
-        up = fc.get_upload(upload_id=p.associated_uploads[0].upload_id)
-        uploads_to_delete.append(up)
-        projects_to_delete.append(p)
+                uploads_to_delete.append(project)
+                projects_to_delete.append(upload)
+            except Exception as e:  # noqa
+                print("########### ERROR #########################")
+                print(f"Failed ES test case {test_idx} with error {e}")
+                print(traceback.format_exc())
+                print("########### ERROR #########################")
+                if raise_on_error:
+                    raise
+    if verbose:
+        print(f"\nTesting Embedding Space creation finished in {(datetime.utcnow()-start).total_seconds()}\n")
     return
 
 
@@ -307,170 +326,67 @@ def cleanup():
         u.delete()
 
 
-def _find_bad_line_number(file_path: Path | str = None, buffer: bytes | str = None):
-    try:
-        if file_path:
-            buffer = file_path.read_text()
-
-        reader = csv.reader(buffer)
-        linenumber = 1
+def ensure_featrixclient(ensure_pypi: bool, verbose: bool):
+    if ensure_pypi:
         try:
-            for _ in reader:
-                linenumber += 1
-        except Exception as e:  # noqa
-            return linenumber
-    except:  # noqa
-        pass
-    return -1
+            from featrixclient.version import version, publish_time
+        except ImportError:
+            raise ImportError("featrixclient not found in the Python path, trying to install from PyPI")
 
+        from featrixclient import __file__ as fc_file
 
-# A wrapper for dealing with CSV files.
-def featrix_wrap_pd_read_csv(
-    file_path: str | Path = None, buffer: bytes | str = None, on_bad_lines="skip"
-):
-    """
-    If you want to split CSVs in your notebook and so on when working
-    with Featrix, this function should be used to capture the extra work
-    around pandas' `pd.read_csv` that you'll want for best performance
-    with Featrix. We will add split and a way to get back the test df
-    to the client in a future release.
-
-    Any column with an 'int' type -- meaning there doesn't seem to be a
-    header line in the CSV -- will be renamed to `column_N`.
-
-    Parameters
-    ----------
-    file_path : str
-        Path to the CSV on your local system.
-    buffer: str or bytes
-        The CSV already in buffer
-    on_bad_lines: str
-        What to do with bad lines. By default, we 'skip', but you may want to 'error'.
-        This is passed directly to `pd.read_csv`.
-
-    This can raise exceptions if the file is not found or seems to be empty.
-
-    """
-    if not file_path and not buffer:
-        raise ValueError(
-            "No data provided via buffer or path to featrix_wrap_pd_read_csv"
-        )
-    if file_path:
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"No such file {file_path}")
-        # get the size of the file
-        sz = os.path.getsize(file_path)
-        if sz == 0:
-            raise Exception(f"The file {file_path} appears to be 0 bytes long.")
-    elif isinstance(buffer, bytes):
-        buffer = buffer.decode()
-    buffer_io = StringIO(buffer) if buffer else None
-
-    sniffer = csv.Sniffer()
-    if buffer:
-        dialect = sniffer.sniff(buffer)
-        has_header = sniffer.has_header(buffer)
+        if 'site-packages' in fc_file:
+            if verbose:
+                from featrixclient.version import version, publish_time
+                print(f"Using featrixclient {version} installed in {Path(fc_file).parent}, built {publish_time}")
+            return
+        raise ImportError(f"featrixclient is being loaded from {Path(fc_file).parent} not site-packages.")
     else:
-        with open(file_path, newline="", errors='ignore') as csvfile:
-            # For some very wide files, 2K isn't enough.
-            # It's possible 256K isn't either, but one has to draw the line!
+        try:
+            import featrixclient
+        except ImportError:
+            # We assume we are running the smoketest in the src tree under test
+            sys.path.append(str(top))
+
             try:
-                sample = csvfile.read(32 * 1024)
-            # except UnicodeDecodeError as err:
-                # print("bad unicode:",dir(err))
-                # print("err.reason: ", err.reason)
-                # print("err.start: ", err.start)
-                # print("err.end: ", err.end)
-            except:  # noqa
-                bad_line = _find_bad_line_number(file_path=file_path, buffer=buffer)
-                if bad_line > 0:
-                    print("first BAD LINE WAS ...", bad_line)
+                import featrixclient
+            except ImportError:
+                raise ImportError(f"Could not find featrixclient in the source tree, python path {sys.path}")
+        if verbose:
+            print(f"Using featrixclient from src in {Path(featrixclient.__file__).parent}")
 
-            dialect = sniffer.sniff(sample)
-            has_header = sniffer.has_header(sample)
 
-    csv_parameters = {
-        'delimiter': dialect.delimiter,
-        'quotechar': dialect.quotechar,
-        'escapechar': dialect.escapechar,
-        'doublequote': dialect.doublequote,
-        'skipinitialspace': dialect.skipinitialspace,
-        'quoting': dialect.quoting,
-        # Pandas does not support line terminators > 1 but Sniffer returns things like '\r\n'
-        # 'lineterminator': dialect.lineterminator
-    }
+def read_test_driver(args):
+    import json
 
-    if has_header:
-        try:
-            df = pd.read_csv(
-                file_path or buffer_io,
-                # Pandas doesn't take the same dialect as csv.Sniffer produces so we create csv_parameters
-                # dialect=dialect,
-                on_bad_lines=on_bad_lines,
-                encoding_errors='ignore',
-                **csv_parameters
-            )
-        except csv.Error as err:
-            bad_line = _find_bad_line_number(file_path=file_path, buffer=buffer)
-            if bad_line > 0:
-                print("first BAD LINE WAS ...", bad_line)
-            s_err = str(err)
-            print(s_err)
-            # FIXME: Not sure if there is something we can do if the buffer is hosed?
-            if (
-                s_err is not None
-                and s_err.find("malformed") >= 0
-                and file_path is not None
-            ):
-                df = pd.read_csv(
-                    file_path,
-                    # Pandas doesn't take the same dialect as csv.Sniffer produces so we create csv_parameters
-                    # dialect=dialect,
-                    on_bad_lines=on_bad_lines,
-                    lineterminator="\n",
-                    **csv_parameters
-                )
-                print("recovered")
-            else:
-                print("c'est la vie")
-                raise err
-            # endif
-
-        # if any of the columns have an 'int' type, rename it.
-        if df is not None:
-            cols = list(df.columns)
-            renames = {}
-            for idx, c in enumerate(cols):
-                if not isinstance(c, str):
-                    renames[c] = "column_" + str(c)
-            if len(renames) > 0:
-                df.rename(columns=renames, inplace=True)
-
-        return df
-
-    if not has_header:
-        # Try again -- and see.
-
-        try:
-            df = pd.read_csv(file_path or buffer_io,  **csv_parameters)
-            cols = df.columns
-            if len(cols) >= 0:
-                if cols[0].startswith("Unnamed"):
-                    # still no good.
-                    raise Exception(
-                        f"CSV file {file_path} doesn't seem to have a header line, which means it does not "
-                        "have labels for the columns. This will make creating predictions on "
-                        "specific targets difficult!"
-                    )
-            return df
-        except Exception as err:  # noqa - catch anything
-            traceback.print_exc()
-            raise Exception(
-                f"CSV file {file_path} doesn't seem to have a header line, which means it does not "
-                "have labels for the columns. This will make creating predictions on specific targets difficult! [2]"
-            )
-
-    return None
+    if not args.data_file.exists():
+        raise FileNotFoundError(f"Could not find test driver file {args.data_file}")
+    lines = []
+    for line in args.data_file.read_text().split("\n"):
+        if line.strip().startswith("#"):
+            continue
+        r = line.rfind('#')
+        if r > 0:
+            line = line[:r]
+        lines.append(line)
+    tests = json.loads(args.data_file.read_text())
+    if 'uploads' not in tests:
+        if args.verbose:
+            print("No uploads test case found in {filename}, skipping upload testing")
+        args.skip_uploads = True
+    if 'nf' not in tests:
+        if args.verbose:
+            print("No neural function test case found in {filename}, skipping neural function testing")
+        args.skip_nf = True
+    if 'es' not in tests:
+        if args.verbose:
+            print("No embedding space test case found in {filename}, skipping embedding space testing")
+        args.skip_es = True
+    if 'explorer' not in tests:
+        if args.verbose:
+            print("No explorer test case found in {filename}, skipping explorer testing")
+        args.skip_explorer = True
+    return args, tests
 
 
 def main():
@@ -486,27 +402,35 @@ def main():
     ap.add_argument("--skip-nf", action="store_true", help="Skip the neural function tests")
     ap.add_argument("--skip-es", action="store_true", help="Skip the embedding space tests")
     ap.add_argument("--skip-explorer", action="store_true", help="Skip the explorer tests")
+    ap.add_argument("--raise-on-error", "-X", action="store_true", help="Stop tests on any error")
+    ap.add_argument("--data-dir", action="store", default=str(top / "tests/data"),
+                    help="Directory containing data files")
+    ap.add_argument("--data-file", action="store", default=str(top / "tests/data/smoketest.json"),
+                    help="Data specific json data file to use for testing")
+    ap.add_argument("--ensure-pypi", action="store_true",
+                    help="Ensure we are running against an installed version of featrixclient, not the local src")
+    ap.add_argument("--verbose", "-v", action="store_true", help="Print verbose output")
     args = ap.parse_args()
+
+    ensure_featrixclient(args.ensure_pypi, args.verbose)
+    args.data_dir = Path(args.data_dir)
+    args.data_file = Path(args.data_file)
+    args, test_cases = read_test_driver(args)
     fc = get_client(args.environment, args.client_id, args.client_secret)
 
     start = datetime.utcnow()
     try:
         if not args.skip_uploads:
-            test_uploads(fc)
-            print(f"Finished Upload testing in {(datetime.utcnow() - start).total_seconds()} seconds.")
+            test_uploads(fc, args.data_dir, test_cases['uploads'], verbose=args.verbose,
+                         raise_on_error=args.raise_on_error)
         if not args.skip_nf:
-            substart = datetime.utcnow()
-            test_nf(fc)
-            print(f"Finished Neural Function testing in {(datetime.utcnow() - substart).total_seconds()} seconds.")
+            test_nf(fc, args.data_dir, test_cases['nf'], verbose=args.verbose, raise_on_error=args.raise_on_error)
         if not args.skip_es:
-            substart = datetime.utcnow()
-            test_es(fc)
-            print(f"Finished Embedding Space testing in {(datetime.utcnow() - substart).total_seconds()} seconds.")
+            test_es(fc, args.data_dir, test_cases['es'], verbose=args.verbose, raise_on_error=args.raise_on_error)
         if not args.skip_explorer:
-            substart = datetime.utcnow()
-            test_explorer(fc)
-            print(f"Finished Explorer creation testing in {(datetime.utcnow() - substart).total_seconds()} seconds.")
-        print(f"Smoke test complete in {(datetime.utcnow() - start).total_seconds()} seconds.")
+            test_explorer(fc, args.data_dir, test_cases['explorer'], verbose=args.verbose,
+                          raise_on_error=args.raise_on_error)
+        print(f"\nSmoke test complete in {(datetime.utcnow() - start).total_seconds()} seconds.")
 
     except Exception as e:
         import traceback

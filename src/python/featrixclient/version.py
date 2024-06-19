@@ -27,7 +27,6 @@
 #  Yes, you can see this file, but Featrix, Inc. retains all rights.
 #
 #############################################################################
-version = "2023.11.1"
-publish_host = "localhost(dev tree)"
-publish_time = "Mon Jan 01 00:00:00 EST 2024"
+version = "2024.530.2"
+publish_time = "2024-05-30T12:51:46.713207"
 __author__ = "Featrix, Inc."

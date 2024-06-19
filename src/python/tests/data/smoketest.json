@@ -1,0 +1,23 @@
+{
+    "uploads": [
+        {"name": "8000-boston.csv", "sample_size": 8000},
+        {"name": "animals.csv", "sample_size": 1000, "associate": true},
+        {"name": "weight-height.csv", "sample_size": 5000, "associate": true, "project":true},
+        {"name": "email-large.csv", "sample_size": 100000, "df": true},
+        {"name": "weight-height.csv", "sample_size": 2000, "df": true, "associate": true},
+        {"name": "8000-boston.csv", "sample_size": 7000, "df": true, "associate": true, "project": true}
+    ],
+    "nf": [
+        {"name": "animals.csv", "sample_size": 1000, "sample_by": "Animal", "target": "Animal", "automation": "upload"},
+        {"name": "animals.csv", "sample_size": 1000, "sample_by": "Animal", "target": "weight", "automation": "project"},
+        {"name": "animals.csv", "sample_size": 1000, "sample_by": "Animal", "target": "height", "automation": "full"}
+    ],
+    "es": [
+        {"name": "animals.csv", "sample_size": 1000, "sample_by": "Animal", "automation": "upload"},
+        {"name": "animals.csv", "sample_size": 1000, "sample_by": "Animal", "automation": "project"},
+        {"name": "animals.csv", "sample_size": 1000, "sample_by": "Animal", "automation": "full"}
+    ],
+    "explorer": [
+        {"name": "animals.csv", "sample_size": 1000, "sample_by": "Animal"}
+    ]
+}
