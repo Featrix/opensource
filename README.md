@@ -20,3 +20,4 @@ Manually joining data is not required to associate data in the data space; Featr
 A data space can have multiple vector spaces with different arrangements.
 A vector space can have multiple models.
 Every vector space includes a set of vector indices to enable extremely fast querying for clusters or nearest neighbors in the data set.
+
