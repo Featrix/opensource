@@ -123,6 +123,9 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             name: Optional[str] = None,
             credit_budget: int = 3,
             wait_for_completion: bool = False,
+            encoding: Optional[Dict] = None,
+            focus_cols: Optional[List[str] | str] = None,
+            ignore_cols: Optional[List[str] | str] = None,
             **kwargs
     ):  # noqa
         """
@@ -139,6 +142,9 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             str(fc.current_project.id),
             name,
             training_budget_credits=credit_budget,
+            encoding=encoding or {},
+            focus_cols=focus_cols or [],
+            ignore_cols=ignore_cols or [],
             **kwargs
         )
 

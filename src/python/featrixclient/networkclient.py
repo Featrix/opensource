@@ -536,7 +536,11 @@ class Featrix:
             name: Optional[str] = None,
             credit_budget: int = 3,
             files: Optional[List[pd.DataFrame | str | Path]] = None,
-            wait_for_completion: bool = False
+            wait_for_completion: bool = False,
+            encoder: Optional[Dict] = None,
+            ignore_cols: Optional[List[str] | str] = None,
+            focus_cols: Optional[List[str] | str] = None,
+            **kwargs,
     ) -> Tuple["FeatrixEmbeddingSpace", FeatrixJob]:  # noqa forward ref
         """
 
@@ -563,7 +567,13 @@ class Featrix:
                         (optional - if you already associated files with the project, this is redundant)
             wait_for_completion(bool): make this synchronous, printing out status messages while waiting for the
                                     training to complete
-
+            encoder: Optional dictionary of encoder overrides to use for the embedding space
+            ignore_cols: Optional list of columns to ignore in the training  (a string of comma separated
+                                                                            column names or a list of strings)
+            focus_cols: Optional list of columns to focus on in the training (a string of comma separated
+                                                                            column names or a list of strings)
+            **kwargs -- any other fields to ESCreateArgs() such -- can be called as to specify rows for instance):
+                              create_embedding_space(project, name, credits, files, wait_for_completion, rows=1000)
         Returns:
             Tuple(FeatrixEmbeddingSpace, FeatrixJob) -- the featrix model and the jobs associated with training the model
                          if wait_for_completion is True, the model returned will be fully trained, otherwise the
@@ -599,6 +609,10 @@ class Featrix:
             self,
             name=name,
             credit_budget=credit_budget,
+            encoder=encoder,
+            ignore_cols=ignore_cols,
+            focus_cols=focus_cols,
+            **kwargs
         )
         if wait_for_completion:
             job = job.wait_for_completion("Training Embedding Space: ")
@@ -641,7 +655,11 @@ class Featrix:
             project: Optional[FeatrixProject | str] = None,
             credit_budget: int = 3,
             files: Optional[List[pd.DataFrame | str | Path]] = None,
-            wait_for_completion: bool = False
+            wait_for_completion: bool = False,
+            encoder: Optional[Dict] = None,
+            ignore_cols: Optional[List[str] | str] = None,
+            focus_cols: Optional[List[str] | str] = None,
+            **kwargs,
     ) -> Tuple[FeatrixModel, FeatrixJob, FeatrixJob]:
         """
         Create a new neural function in the current project.  If a project is passed in with the project_or_id
@@ -685,6 +703,13 @@ class Featrix:
                         (optional - if you already associated files with the project, this is redundant)
             wait_for_completion(bool): make this synchronous, printing out status messages while waiting for the
                                     training to complete
+            encoder: Optional dictionary of encoder overrides to use for the embedding space
+            ignore_cols: Optional list of columns to ignore in the training  (a string of comma separated
+                                                                            column names or a list of strings)
+            focus_cols: Optional list of columns to focus on in the training (a string of comma separated
+                                                                            column names or a list of strings)
+            **kwargs -- any other fields to ESCreateArgs() such -- can be called as to specify rows for instance):
+                              create_embedding_space(project, name, credits, files, wait_for_completion, rows=1000)
 
         Returns:
             Tuple(FeatrixModel, Job, Job) -- the featrix model and the jobs associated with training the model
@@ -717,7 +742,15 @@ class Featrix:
         if self.current_project.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
 
-        jobs = FeatrixModel.new_neural_function(self, target_fields, credit_budget)
+        jobs = FeatrixModel.new_neural_function(
+            self,
+            target_fields,
+            credit_budget,
+            encoder,
+            ignore_cols,
+            focus_cols,
+            **kwargs
+        )
         if wait_for_completion:
             # If we are leveraging an embedding space we created previously, the job will be marked as finished already
             fini = []

@@ -104,12 +104,26 @@ class FeatrixModel(Model):
             target_field: str | List[str],
             credit_budget: int = 3,
             embedding_space: Optional["FeatrixEmbeddingSpace" | str] = None,  # noqa F821 forward ref
+            encoder: Optional[Dict] = None,
+            ignore_cols: Optional[List[str] | str] = None,
+            focus_cols: Optional[List[str] | str] = None,
             **kwargs
         ):  # noqa
         """
         This creates a chained-job to do training first on an embedding space, and then on the predictive model
         within that embedding space.  It returns a tuple which is the two jobs (the first job for the embedding space
         training and the second for the predictive model training).
+
+        Arguments:
+            fc: the feature client object for submitting API requests
+            target_field: The field that we are trying to predict
+            credit_budget: The number of credits to budget for training
+            embedding_space: The embedding space to use for training
+            encoder: Optional encoder overrides to use for training the embedding space
+            ignore_cols: Optional columns to ignore during training
+            focus_cols: Optional columns to focus on during training
+            kwargs: Additional arguments to pass to the create embedding or train model functions
+
         """
         from .featrix_job import FeatrixJob
         from .featrix_embedding_space import FeatrixEmbeddingSpace
@@ -125,6 +139,9 @@ class FeatrixModel(Model):
             embedding_space_create=FeatrixEmbeddingSpace.create_args(
                 str(fc.current_project.id),
                 kwargs.get('name', f"Predict_{'_'.join(target_field)}"),
+                encoder=encoder or {},
+                ignore_cols=ignore_cols or [],
+                focus_cols=focus_cols or [],
                 **kwargs
             ),
             model_create=FeatrixModel.create_args(str(fc.current_project.id), target_columns=target_field, **kwargs)
