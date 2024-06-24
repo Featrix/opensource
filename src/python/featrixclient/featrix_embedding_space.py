@@ -136,7 +136,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         from .featrix_job import FeatrixJob
 
         if name is None:
-            name = f"{fc.current_project.name}-{uuid.uuid4}"
+            name = f"{fc.current_project.name}-{uuid.uuid4()}"
 
         es_create_args = FeatrixEmbeddingSpace.create_args(
             str(fc.current_project.id),
