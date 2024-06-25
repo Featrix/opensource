@@ -295,7 +295,7 @@ class Featrix:
             )
 
         if len(self._library) == 0:
-            fc.get_uploads()
+            self.get_uploads()
         if upload_id is not None:
             if str(upload_id) in self._uploads:
                 return self._uploads[str(upload_id)]
