@@ -2,7 +2,7 @@ Welcome to Featrix!
 ===================
 
 `Featrix <https://featrix.ai/>`_ is a data gateway to create ML models for structured data *with no data preparation
-on your part*. Featrix has both a modern user interface `Featrix App <https://app.featrix.com/>`_ and a Python client library
+on your part*. Featrix has both a modern user interface `hosted at app.featrix.com <https://app.featrix.com/>`_ and a Python client library
 that can easily be used in a notebook. Featrix can be used by developers, ML engineers, or data scientists to work with any
 structured data source, including Pandas dataframes, spreadsheets, databases, or CSV files. You can also mix unstructured and structured data.
 
