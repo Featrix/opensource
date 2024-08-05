@@ -68,10 +68,8 @@ What can Featrix do?
 We have big goals for Featrix, including:
 
 1. Speed and ease of development.
-2. Flexible enough for power uses under the hood, but a set of easy to use APIs and tools that are simple enough for
-novice organizations to get started with ML right away.
-3. Enable a variety of downstream workloads with the Featrix data representations. We believe vector-based computing
-is the future and everything we do in Featrix is powered by vector-based embeddings that represent the original data.
+2. Flexible enough for power uses under the hood, but a set of easy to use APIs and tools that are simple enough for novice organizations to get started with ML right away.
+3. Enable a variety of downstream workloads with the Featrix data representations. We believe vector-based computing is the future and everything we do in Featrix is powered by vector-based embeddings that represent the original data.
 
 
 Data Linking
