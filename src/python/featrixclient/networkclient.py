@@ -71,7 +71,7 @@ from featrixclient.featrix_job import FeatrixJob
 from featrixclient.models import TrainingState, ProjectType, JobType
 from .api import FeatrixApi
 from .exceptions import FeatrixException, FeatrixJobFailure
-from .featrix_model import FeatrixModel
+from .featrix_neural_function import FeatrixNeuralFunction
 from .featrix_project import FeatrixProject
 from .featrix_upload import FeatrixUpload
 from .version import version, publish_time
@@ -134,8 +134,6 @@ class Featrix:
         those models.
         """
         self._projects = {}
-        self._current_project = None
-        self._current_model = None
         # by name and by id ?
         self._library = {}
         self._uploads = {}
@@ -152,8 +150,6 @@ class Featrix:
 
     def _store_project(self, project: FeatrixProject):
         self._projects[str(project.id)] = project
-        if self._current_project and str(self._current_project.id) == str(project.id):
-            self.current_project = project
 
     def projects(self) -> List[FeatrixProject]:
         """
@@ -170,60 +166,7 @@ class Featrix:
             if self.debug:
                 print(f"Found project: {project.model_dump_json(indent=4)}")
             self._store_project(project)
-        if self.current_project is None:
-            if len(projects) > 0:
-                self.current_project = projects[0]
         return projects
-
-    @property
-    def current_project(self) -> FeatrixProject:
-        """
-        Return or set the current project which is being used by class operation. Most operations will operate on the
-        current project if a project isn't specifically provided.  When setting the current project, the caller can
-        provide a FeatrixProject object or the ID of the project (FeatrixProject.id).  If the project id isn't
-        found internally in the project cache, the call will attempt to refresh the project list.
-
-        Raise:
-        This can raise a FeatrixException if the caller uses the setting with an invalid project id.
-        """
-        return self._current_project
-
-    @current_project.setter
-    def current_project(self, value: FeatrixProject | str) -> None:
-        """
-        Set the current project, which should be a FeatrixProject in the self.projects list.
-
-        Args:
-            value (FeatrixProject): the project to make the current project
-
-        """
-        project = None
-        if isinstance(value, str):
-            # Should be a project id
-            if value not in self._projects:
-                self.projects()
-            if value not in self._projects:
-                raise FeatrixException(
-                    f"Project id {value} not found in organizations project list."
-                )
-            project = self._projects[value]
-        elif isinstance(value, FeatrixProject):
-            project = value
-        elif value is None:
-            project = self.current_project
-        if project is None:
-            raise FeatrixException(
-                "Can only set the current project to a valid FeatrixProject class"
-            )
-        self._current_project = project
-        if self.debug:
-            print(
-                f"Setting current project to {self._current_project.name} - {self._current_project.id}"
-            )
-            print(
-                f"Refreshing embedding spaces for project {self._current_project.name}"
-            )
-        self._current_project.embedding_spaces()
 
     def get_project_by_id(self, project_id: str) -> FeatrixProject:
         """
@@ -233,18 +176,6 @@ class Featrix:
             FeatrixProject: The project object found in the cache
         """
         return self._projects.get(str(project_id))
-
-    def drop_project(self, project_id: str) -> None:
-        """
-        Delete the project referenced by id (FeatrixProject.id) from the system.
-        """
-        try:
-            del self._projects[str(project_id)]
-            if str(self._current_project.id) == str(project_id):
-                self._current_project = None
-        except KeyError:
-            pass
-        return
 
     def create_project(
         self,
@@ -265,8 +196,21 @@ class Featrix:
             FeatrixProject - the new project object created
 
         """
-        self.current_project = FeatrixProject.new(self, name, user_meta=user_meta, tags=tags)
-        return self.current_project
+        project = FeatrixProject.new(self, name, user_meta=user_meta, tags=tags)
+        self._store_project(project)
+        return project
+
+    def drop_project(self, project: FeatrixProject | str) -> None:
+        """
+        Drop a project from the cache of projects.  This will not delete the project from the Featrix system,
+        just remove it from the cache of projects in the Featrix object.
+
+        Args:
+            project: The project object or the id of the project to drop from the cache
+        """
+        project_id = str(project.id) if isinstance(project, FeatrixProject) else project
+        if project_id in self._projects:
+            del self._projects[project_id]
 
     def get_uploads(self) -> None:
         """
@@ -316,7 +260,7 @@ class Featrix:
     def upload_files(
             self,
             uploads: List[pd.DataFrame | str | Path],
-            associate: bool | FeatrixProject = False,
+            associate: Optional[FeatrixProject] = None,
             labels: Optional[List[str | None]] = None,
     ) -> List[FeatrixUpload]:
         """
@@ -325,12 +269,11 @@ class Featrix:
         or both.  If the `labels` list is not provided, the filenames will be used as the labels for the uploads,
         or an auto-generated label will be used for the DataFrame uploads.
 
-        If the associate flag is True, the uploads will be associated with the current project. If the associate is
-        set to a FeatrixProject, they will be associated with that project.
+        If the user passes in a project to associate, we do that as well. .
 
         Arguments:
             uploads: List of filenames or DataFrames to upload
-            associate: If True, associate the uploads with the current project, if a FeatrixProject, associate with that
+            associate: a FeatrixProject to associate with
             labels: Optional list of labels to use for the uploads, if not provided, the filenames will be used for the
 
         Returns:
@@ -346,7 +289,7 @@ class Featrix:
     def upload_file(
             self,
             upload: pd.DataFrame | str | Path,
-            associate: bool | FeatrixProject = False,
+            associate: Optional[FeatrixProject] = None,
             label: Optional[str] = None,
     ) -> FeatrixUpload:
         """
@@ -363,8 +306,7 @@ class Featrix:
         Args:
             upload: (pd.DataFrame | str | Path): The data file to add to your library, referenced by a pandas DataFrame
                     or the filename (str or Path) of the CSV file to use
-            associate: (bool | FeatrixProject): IF set to true, associate this upload with the current project,
-                    if the field is set to a FeatrixProject, associate it with that specific project.
+            associate: FeatrixProject: associate this upload with FeatrixProject
             label: Optional - use as filename if passed in a dataframe
 
         Returns:
@@ -398,132 +340,41 @@ class Featrix:
             if isinstance(associate, FeatrixProject):
                 project = associate.associate(upload)
                 self._store_project(project)
-            elif associate is True and self._current_project is not None:
-                self._store_project(self._current_project.associate(upload))
             else:
                 raise FeatrixException(
-                    "No current project with which to associate upload"
+                    "The associate needs to be a FeatrixProject"
                 )
         return upload
 
-    @property
-    def current_model(self) -> FeatrixModel:
-        """
-        Get/set the current active model/neural function property.
-
-        Returns:
-            FeatrixModel | None: Current active model
-        """
-        return self._current_model
-
-    @current_model.setter
-    def current_model(self, value: FeatrixModel) -> None:
-        """
-        Set the current active model/neural function.
-
-        """
-        if not isinstance(value, FeatrixModel):
-            raise FeatrixException("Value must be a FeatrixModel class")
-        if self._current_model != value:
-            self._current_model = value
-
-    @property
-    def current_neural_function(self):
-        """
-        Get the current active neural function (aka model), if there is one.  Alias for `current_model` property
-
-        Returns
-        -------
-            FeatrixModel | None: Current active model
-        """
-        return self.current_model
-
-    @current_neural_function.setter
-    def current_neural_function(self, value: FeatrixModel) -> None:
-        """
-        Set the current neural function to operate on.
-
-        Parameters
-        ----------
-        value : FeatrixModel
-
-        """
-        self.current_model = value
-
-    def neural_functions(
-        self, project: Optional[FeatrixProject | str] = None
-    ) -> List[FeatrixModel]:
-        """
-        Convenience method for getting a project's list of models.  It is quicker to know which
-        embedding space contains the model and get at it that way if the project contains multiple embedding
-        spaces, but for the projects with just a single embedding space, this is easier to use.
-        Method will use the current project if there is no project argument, and will load projects if they
-        aren't already in place.
-
-        Args:
-            project: FeatrixProject or str: The FeatrixProject to or the id of the FeatrixProject to use instead
-                        of current_project
-
-        Returns:
-            List[FeatrixModel] List of Neural Functions (FeatrixModel) objects
-        """
-        if project is None:
-            project = self.current_project
-        if project is None:
-            self.projects()
-        if project is None:
-            raise FeatrixException("There are no projects available.")
-        return project.models()
-
-    models = neural_functions
-
     def get_neural_function(
-        self, neural_function_id, project: Optional[FeatrixProject | str] = None
-    ) -> FeatrixModel:
+            self,
+            neural_function_id,
+            project: Optional[FeatrixProject | str] = None
+    ) -> FeatrixNeuralFunction:
         """
         Given a neural function id (and optionally, a project id), return the object that represents
         that neural function. You can then run predictions on that neural function.
 
         Arguments:
             neural_function_id: The id of the neural function to find
-            project: Optional project to use instead of the current project
+            project: Optional project to use, otherwise we walk the projects.
 
         Returns:
-            FeatrixModel: The model object found
+            FeatrixNeuralFunction: The model object found
 
         """
-        if project is not None:
-            self.current_project = (
-                project
-                if isinstance(project, FeatrixProject)
-                else self._projects[project]
-            )
-        if len(self._projects) == 0:
-            self.projects()
-            self.models()
-        if self.current_project is None:
-            raise FeatrixException("There are no projects in this account")
-
-        model = self.current_project.find_model(neural_function_id)
-        if model is None:
-            if self.debug:
-                print(
-                    f"Model {neural_function_id} not found in current project "
-                    f"{self.current_project.id}, checking others"
-                )
-            # Just deal with multi projects for now -- need a better way
-            for p in self._projects.values():
-                self.current_project = p
-                self.models()
-                model = self.current_project.find_model(neural_function_id)
-                if model:
-                    break
-            else:
-                raise ValueError(f"No Neural function model id {neural_function_id}")
-        if self.debug:
-            print(f"Found neural function/model {model.name} - {model.id}")
-        self.current_model = model
-        return self.current_model
+        if not project:
+            if not self._projects:
+                self.projects()
+                for project in self._projects.values():
+                    project.neural_functions()
+        projects = [project] if project is not None else self._projects.values()
+        for project in projects:
+            model = project.find_neural_function(neural_function_id)
+            if model:
+                return model
+        msg = f"projects {[p.name for p in projects]}" if len(projects) > 1 else f"project {projects[0].name}"
+        raise ValueError(f"No Neural function model id {neural_function_id} in {msg}")
 
     get_model = get_neural_function
     """
@@ -543,11 +394,8 @@ class Featrix:
             **kwargs,
     ) -> Tuple["FeatrixEmbeddingSpace", FeatrixJob]:  # noqa forward ref
         """
-
-
-        Create a new embedding space in the current project.  If a project is passed (via a FeatrixProject or
-        id of a project), make that the current project and create the embedding space in that project.  If
-        project is not passed in, create the embedding space in the current project.
+        Create a new embedding space in the project specified (FeatrixProject or
+        id of a project).
 
         You do not need to clean nulls or make the data numeric; simply pass in strings or missing values.
 
@@ -560,7 +408,7 @@ class Featrix:
         embedding space, but the `Job` has detailed information about the current status.
 
         Arguments:
-            project: FeatrixProject or str id of the project to use instead of self.current_project
+            project: FeatrixProject or str id of the project to use; if none passed, we create the project
             name: str -- name of embedding space
             credit_budget(int): the default credit budget for the training
             files: a list of dataframes or paths to files to upload and associate with the project
@@ -581,32 +429,33 @@ class Featrix:
                          complete.
         """
         from .featrix_embedding_space import FeatrixEmbeddingSpace
+        from bson import ObjectId
 
-        if project is not None:
-            try:
-                self.current_project = project
-            except FeatrixException:
-                from bson import ObjectId
-
-                if ObjectId.is_valid(project):
-                    raise
-                else:
-                    if files is None:
-                        raise FeatrixException(
-                            f"Can not create a project named {project} and train a "
-                            f"neural function without data files"
-                        )
-                    self.current_project = FeatrixProject.new(self, project)
+        if project is None or (isinstance(project, str) and ObjectId.is_valid(project) is False):
+            if files is None:
+                raise FeatrixException(
+                    f"Can not create a project named {project} and train a "
+                    f"neural function without data files"
+                )
+            project = FeatrixProject.new(self, project if isinstance(project, str) else f"Project {name}")
+        elif isinstance(project, str):
+            # We know it's a ObjectId from the above test
+            if project not in self._projects:
+                self.projects()
+            if project not in self._projects:
+                raise RuntimeError(f"No such project {project}")
+            project = self._projects[project]
 
         upload_processing_wait = wait_for_completion
         if files is not None:
-            self.upload_files(files, associate=True)
+            self.upload_files(files, associate=project)
             upload_processing_wait = True
 
-        if self.current_project.ready(wait_for_completion=upload_processing_wait) is False:
+        if project.ready(wait_for_completion=upload_processing_wait) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
         es, job = FeatrixEmbeddingSpace.new_embedding_space(
             self,
+            project,
             name=name,
             credit_budget=credit_budget,
             encoder=encoder,
@@ -623,25 +472,23 @@ class Featrix:
 
     def display_embedding_explorer(
             self,
-            project: Optional[FeatrixProject | str] = None,
+            project: Optional[FeatrixProject | str],
             embedding_space: FeatrixEmbeddingSpace = None
     ):
         """
         Not Implemented yet.
 
         """
-        if project is not None:
-            self.current_project = project
         if embedding_space is None:
-            if len(self.current_project._embedding_spaces_cache) == 0:
-                self.current_project.embedding_spaces()
-            if len(self.current_project._embedding_spaces_cache) == 0:
-                raise FeatrixException(f"Project {self.current_project.name} has no embedding space trained")
-            if len(self.current_project._embedding_spaces_cache) > 1:
-                raise FeatrixException(f"Project {self.current_project.name} has multiple "
+            if len(project._embedding_spaces_cache) == 0:
+                project.embedding_spaces()
+            if len(project._embedding_spaces_cache) == 0:
+                raise FeatrixException(f"Project {project.name} has no embedding space trained")
+            if len(project._embedding_spaces_cache) > 1:
+                raise FeatrixException(f"Project {project.name} has multiple "
                                        "embedding spaces, please specify which one")
-            embedding_space = self.current_project._embedding_spaces_cache[
-                list(self.current_project._embedding_spaces_cache.keys())[0]
+            embedding_space = project._embedding_spaces_cache[
+                list(project._embedding_spaces_cache.keys())[0]
             ]
         if embedding_space.training_state != TrainingState.COMPLETED:
             raise FeatrixException(f"Embedding space training state {embedding_space.training_state} is not COMPLETED")
@@ -659,14 +506,13 @@ class Featrix:
             encoder: Optional[Dict] = None,
             ignore_cols: Optional[List[str] | str] = None,
             focus_cols: Optional[List[str] | str] = None,
+            embedding_space: Optional[FeatrixEmbeddingSpace | str] = None,
             **kwargs,
-    ) -> Tuple[FeatrixModel, FeatrixJob, FeatrixJob]:
+    ) -> Tuple[FeatrixNeuralFunction, FeatrixJob, FeatrixJob]:
         """
-        Create a new neural function in the current project.  If a project is passed in with the project_or_id
-        argument, it is made the current project.  If the project_or_id is a string, if it is an object id
-        (standard id for a FeatrixProject) we attempt to find that project and make it the current project.  If the
-        string in project_or_id is not a valid object id, we assume it is a name to be used for creating a new
-        project.
+        Create a new neural function in the given project.  If a project is passed in (can be either a FeatrixProject
+        or the id of a project), we use that.  If the project is a string and not an id, we will assume it's a name
+        and create a new project (if it's none, we will create a name for the project using target_fields).
 
         If an embedding space is already trained or being trained in the project, we will use that embedding space
         to train the neural function model, otherwise we will first train an embedding space on the data files included
@@ -697,7 +543,7 @@ class Featrix:
 
         Arguments:
             target_fields: the field name(s) to target in the prediction
-            project: FeatrixProject or str id of the project to use instead of self.current_project
+            project: FeatrixProject or str id of the project to use or the name for a new project
             credit_budget(int): the default credit budget for the training
             files: a list of dataframes or paths to files to upload and associate with the project
                         (optional - if you already associated files with the project, this is redundant)
@@ -712,43 +558,37 @@ class Featrix:
                               create_embedding_space(project, name, credits, files, wait_for_completion, rows=1000)
 
         Returns:
-            Tuple(FeatrixModel, Job, Job) -- the featrix model and the jobs associated with training the model
+            Tuple(FeatrixNeuralFunction, Job, Job) -- the featrix model and the jobs associated with training the model
                          if wait_for_completion is True, the model returned will be fully trained, otherwise the
                          caller will need ot check on the progress of the jobs and update the model when they are
                          complete.
         """
-        if project is not None:
-            try:
-                self.current_project = project
-            except FeatrixException:
-                from bson import ObjectId
-
-                if ObjectId.is_valid(project):
-                    raise
-                else:
-                    if files is None:
-                        raise FeatrixException(
-                            f"Can not create a project named {project} and train a "
-                            f"neural function without data files"
-                        )
-                    self.current_project = FeatrixProject.new(self, project)
-            except Exception as e:
-                print(f"Exception {e} happened!")
-                raise
-
+        from bson import ObjectId
+        if project is None or (isinstance(project, str) and ObjectId.is_valid(project) is False):
+            name = project if isinstance(project, str) else f"Project {target_fields}"
+            project = FeatrixProject.new(self, name)
+        elif isinstance(project, str):
+            if project not in self._projects:
+                self.projects()
+            project = self._projects.get(project)
+            if project is None:
+                raise RuntimeError(f"No such project {project}")
         if files is not None:
-            self.upload_files(files, associate=self.current_project)
+            self.upload_files(files, associate=project)
 
-        if self.current_project.ready(wait_for_completion=wait_for_completion) is False:
+        if project.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
 
-        jobs = FeatrixModel.new_neural_function(
+        print(f"creating new neural -- kwargs is {kwargs}")
+        jobs = FeatrixNeuralFunction.new_neural_function(
             self,
+            project,
             target_fields,
             credit_budget,
             encoder,
             ignore_cols,
             focus_cols,
+            embedding_space=embedding_space,
             **kwargs
         )
         if wait_for_completion:
@@ -761,7 +601,7 @@ class Featrix:
         for job in jobs:
             if job.error:
                 raise FeatrixJobFailure(job)
-        model = FeatrixModel.from_job(jobs[1], self)
+        model = FeatrixNeuralFunction.from_job(jobs[1], self)
         return model, jobs[0], jobs[1]
 
     def create_explorer(
@@ -772,13 +612,14 @@ class Featrix:
             wait_for_model_jobs: bool = False,
             wait_for_completion: bool = False,
             **kwargs
-    ) -> Tuple[FeatrixEmbeddingSpace, FeatrixJob | List[FeatrixJob] | List[FeatrixModel]]:
+    ) -> Tuple[FeatrixEmbeddingSpace, FeatrixJob | List[FeatrixJob] | List[FeatrixNeuralFunction]]:
         """
-        Create a new data explorer in the current project.  If a project is passed in with the project
-        argument, and it is of the right type (ProjectType.EXPLORER) it is made the current project.
-        If the project is a string, if it is an object id (standard id for a FeatrixProject) we attempt
-        to find that project and make it the current project.  If the string in project is not a valid object id,
-        we assume it is a name to be used for creating a new explorer project.
+        Create a new data explorer in the project.  If a project is passed in with the project
+        argument, and it is of the right type (ProjectType.EXPLORER) it will be used, but if it isn't an
+        explorer project, the function will raise an error.
+
+        If the project field is a string, it can be an id of a project or it can be a name which we will use
+        to create a new project.  If there is no project passed in, we will create one and generate a name.
 
         If an embedding space is already trained or being trained in the project, we will use that embedding space
         for the base of the explorer work, otherwise we will first train an embedding space on the data files included
@@ -816,44 +657,42 @@ class Featrix:
             **kwargs:  additional arguments for the ESCreate args, if any
 
         Returns:
-            Tuple(FeatrixModel, Job, Job) -- the featrix model and the jobs associated with training the model
+            Tuple(FeatrixNeuralFunction, Job, Job) -- the featrix model and the jobs associated with training the model
                          if wait_for_completion is True, the model returned will be fully trained, otherwise the
                          caller will need ot check on the progress of the jobs and update the model when they are
                          complete.
         """
+        from bson import ObjectId
+        import uuid
+
         if wait_for_completion:
             wait_for_model_jobs = True
 
-        if project is not None:
-            try:
-                self.current_project = project
-            except FeatrixException:
-                from bson import ObjectId
-
-                if ObjectId.is_valid(project):
-                    raise
-                else:
-                    if files is None:
-                        raise FeatrixException(
-                            f"Can not create a project named {project} and train a "
-                            f"neural function without data files"
-                        )
-                    self.current_project = FeatrixProject.new(self, project, project_type=ProjectType.EXPLORER)
-            except Exception as e:
-                print(f"Exception {e} happened!")
-                raise
+        if project is None or (isinstance(project, str) and ObjectId.is_valid(project) is False):
+            if files is None:
+                raise FeatrixException(
+                    "Can not create a project and train a neural function without data files"
+                )
+            name = project if isinstance(project, str) else f"Explorer project {uuid.uuid4()}"
+            project = FeatrixProject.new(self, name)
+        elif isinstance(project, str):
+            if project not in self._projects:
+                self.projects()
+            project = self._projects.get(project)
+            if project is None:
+                raise FeatrixException(f"No such project {project}")
 
         if files is not None:
-            self.upload_files(files, associate=self.current_project)
+            self.upload_files(files, associate=project)
 
-        if self.current_project.ready(wait_for_completion=wait_for_completion) is False:
+        if project.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
 
         # The API will return the jobs that are in progress -- typically just the embedding space training
         # unless the embedding space is already trained, then it will return the list of model jobs (one
         # for each field)
-        es, jobs = self.current_project.new_explorer(
-            f"{self.current_project.name} Explorer",
+        es, jobs = project.new_explorer(
+            f"{project.name} Explorer",
             training_credits_budgeted=credit_budget,
             **kwargs
         )
@@ -874,21 +713,9 @@ class Featrix:
         # Now jobs will be the jobs of the model trainings and es will be the trained es if we get here
         if wait_for_completion:
             FeatrixJob.wait_for_jobs(self, jobs, f"Explorer Model Training ({len(jobs)} jobs)")
-            models = es.models(force=True)
+            models = es.neural_functions(force=True)
             return es, models
         return es, jobs
-
-    def predictions(self) -> List["FeatrixPrediction"]:  # noqa forward ref
-        """
-        Retrieve the predictions that have been made using the current neural function/model.
-
-        """
-        from .featrix_predictions import FeatrixPrediction  # noqa forward ref
-        if self.current_model is None:
-            raise FeatrixException(
-                "There is no current model, can not retrieve past predictions"
-            )
-        return self.current_model.predictions()
 
     def check_updates(self, **kwargs):
         args = {}

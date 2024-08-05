@@ -64,6 +64,7 @@ from .models import ModelPredictionArgs
 from .models import NewNeuralFunctionArgs
 from .models import NNQueryArgs
 from .models import TrainMoreArgs
+from .config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -123,8 +124,8 @@ class FeatrixApi:
     ):
         self.debug = debug
         self.client = featrix_client
-        self.client_id = client_id
-        self.client_secret = client_secret
+        self.client_id = client_id or settings.client_id
+        self.client_secret = client_secret or settings.client_secret
 
         self.local_only = False
         self._queue_errors = []
@@ -412,6 +413,8 @@ class FeatrixApi:
                 "make sure you don't have FEATRIX_CLIENT_ID or FEATRIX_CLIENT_SECRET in your environment "
                 "and that you don't have a ~/.featrix.key file in place"
             )
+        settings.client_id = client_id
+        settings.client_secret = client_secret
         return client_id, client_secret
 
     def _save_key_file(self):

@@ -120,6 +120,23 @@ class JobMeta(FeatrixBase):
     working_directory: Optional[str] = None
     working_host: Optional[str] = None
 
+    incident: Optional[str | int] = None
+    system_meta: Optional[Dict] = None
+
+    # If this job is published from a running job, this will control whether we auto-launch the job as soon as we
+    # put it in the database.
+    auto_launch: Optional[bool] = None
+
+    # If there is a job that is required to be finished before this job can start, this is the id of that job.
+    # This is used for when jobs are created from a Run* script, and there are some dependencies until
+    required_job_id: Optional[PydanticObjectId] = None
+
+    # If this job is part of a chain or started as a sub-job as part of a group of jobs, everyone will point back to
+    # the start of the chain.  Eventually we will turn this into a dag of jobs and can eliminate some of the
+    # waiter jobs we use to stagger things when we don't have chain capabilities (e.g. you start a model separately
+    # while the embedding space is still being trained).
+    parent_job_id: Optional[PydanticObjectId] = None
+
 
 class JobInfoResponse(FModel):
     error: bool

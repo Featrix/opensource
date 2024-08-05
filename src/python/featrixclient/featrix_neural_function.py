@@ -47,15 +47,16 @@ from .models import ModelFastPredictionArgs
 from .models import NewNeuralFunctionArgs
 from .models import ModelCreateArgs
 from .models import ESCreateArgs
+from .config import settings
 
 
-class FeatrixModel(Model):
+class FeatrixNeuralFunction(Model):
     """
     Represents a predictive model, also known as a neural function.  It is a model trained against an embedding space
     to provide prediction for a given feature/field.
 
     """
-    fc: Optional[Any] = Field(default=None, exclude=True)
+    _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
     _predictions_cache: Optional[Any] = PrivateAttr(default_factory=dict)
     _predictions_cache_updated: Optional[datetime] = PrivateAttr(default=None)
@@ -75,12 +76,12 @@ class FeatrixModel(Model):
         return model_create_args
 
     @classmethod
-    def by_id(cls, model_id: str, fc: Any) -> "FeatrixModel":
+    def by_id(cls, model_id: str, fc: Any) -> "FeatrixNeuralFunction":
         """
         Get a predictive model by its id.
 
         Returns:
-            FeatrixModel: The model if it exists, otherwise None.
+            FeatrixNeuralFunction: The model if it exists, otherwise None.
         """
         result = fc.api.op("model_get", model_id=model_id)
         return  ApiInfo.reclass(cls, result, fc=fc)
@@ -94,19 +95,20 @@ class FeatrixModel(Model):
             job: FeatrixJob: The job that references the model -- must have model_id set
 
         Returns:
-            FeatrixModel: The model if it exists, otherwise None.
+            FeatrixNeuralFunction: The model if it exists, otherwise None.
         """
         return cls.by_id(str(job.model_id), fc=fc)
 
     @staticmethod
     def new_neural_function(
             fc: Any,
+            project: "FeatrixProject" | str,  # noqa froward ref
             target_field: str | List[str],
             credit_budget: int = 3,
-            embedding_space: Optional["FeatrixEmbeddingSpace" | str] = None,  # noqa F821 forward ref
             encoder: Optional[Dict] = None,
             ignore_cols: Optional[List[str] | str] = None,
             focus_cols: Optional[List[str] | str] = None,
+            embedding_space: Optional["FeatrixEmbeddingSpace" | str] = None,  # noqa F821 forward ref
             **kwargs
         ):  # noqa
         """
@@ -126,25 +128,29 @@ class FeatrixModel(Model):
 
         """
         from .featrix_job import FeatrixJob
+        from .featrix_project import FeatrixProject
         from .featrix_embedding_space import FeatrixEmbeddingSpace
 
+        project_id = str(project.id) if isinstance(project, FeatrixProject) else project
+        embedding_space_create = FeatrixEmbeddingSpace.create_args(
+            project_id,
+            kwargs.get('name', f"Predict_{'_'.join(target_field)}"),
+            encoder=encoder or {},
+            ignore_cols=ignore_cols or [],
+            focus_cols=focus_cols or [],
+            **kwargs
+        )
         if embedding_space is not None:
-            raise NotImplementedError("Not implemented yet")
+            embedding_space_create.embedding_space_id = str(embedding_space.id)
+
         if isinstance(target_field, str):
             target_field = [target_field]
 
         neural_request = NewNeuralFunctionArgs(
-            project_id=fc.current_project.id,
+            project_id=project_id,
             training_credits_budgeted=credit_budget,
-            embedding_space_create=FeatrixEmbeddingSpace.create_args(
-                str(fc.current_project.id),
-                kwargs.get('name', f"Predict_{'_'.join(target_field)}"),
-                encoder=encoder or {},
-                ignore_cols=ignore_cols or [],
-                focus_cols=focus_cols or [],
-                **kwargs
-            ),
-            model_create=FeatrixModel.create_args(str(fc.current_project.id), target_columns=target_field, **kwargs)
+            embedding_space_create=embedding_space_create,
+            model_create=FeatrixNeuralFunction.create_args(project_id, target_columns=target_field, **kwargs)
         )
         dispatches = fc.api.op("job_chained_new_neural_function", neural_request)
         jobs = [FeatrixJob.from_job_dispatch(dispatch, fc) for dispatch in dispatches]
@@ -174,10 +180,10 @@ class FeatrixModel(Model):
         if isinstance(query, dict):
             query = [query]
         predict_args = ModelFastPredictionArgs(model_id=str(self.id), query=query)
-        pred = self.fc.api.op("models_create_prediction", predict_args)
-        fp = ApiInfo.reclass(FeatrixPrediction, pred, fc=self.fc)
+        pred = self._fc.api.op("models_create_prediction", predict_args)
+        fp = ApiInfo.reclass(FeatrixPrediction, pred, fc=self._fc)
         self._predictions_cache[fp.id] = fp
-        if self.fc.debug:
+        if self._fc.debug:
             print(f"Prediction {fp.id}: {fp.query} -> {fp.result}")
             print(
                 f"Prediction timing: Overall {fp.debug_info.get('api_time', -1)} "
@@ -185,38 +191,41 @@ class FeatrixModel(Model):
             )
         return fp.result
 
-    def predictions(self, force: bool = False) -> List[FeatrixPrediction]:
+    def predictions(self, stale_timeout: int = settings.stale_timeout) -> List[FeatrixPrediction]:
         """
         Retrieve historical predictions.
 
         Arguments:
-            force: bool: If True, force the predictions to be fetched from the server
+            stale_timeout: int: The number of seconds to wait before refreshing the cache
 
         Returns:
             List[FeatrixPrediction]: The list of predictions for this model
         """
         from .featrix_predictions import FeatrixPrediction
 
-        since = None
-        if self._predictions_cache_updated is not None and not force:
+        if (
+                self._predictions_cache_updated is None or
+                (datetime.utcnow() - self._predictions_cache_updated) > stale_timeout
+        ):
             since = self._predictions_cache_updated
-            result = self.fc.check_updates(job_meta=self._predictions_cache_updated)
-            if result.job_meta is False:
-                return list(self._predictions_cache.values())
-        self._predictions_cache_updated = datetime.utcnow()
-        results = self.fc.api.op(
-            "models_get_predictions", model_id=str(self.id), since=since
-        )
-        prediction_list = ApiInfo.reclass(FeatrixPrediction, results, fc=self.fc)
-        for prediction in prediction_list:
-            self._predictions_cache[str(prediction.id)] = prediction
-        return prediction_list
+            self._predictions_cache_updated = datetime.utcnow()
+            results = self._fc.api.op(
+                "models_get_predictions", model_id=str(self.id), since=since
+            )
+            prediction_list = ApiInfo.reclass(FeatrixPrediction, results, fc=self._fc)
+            for prediction in prediction_list:
+                self._predictions_cache[str(prediction.id)] = prediction
+        return list(self._predictions_cache.values())
 
-    def get_prediction(self, prediction_id: str) -> FeatrixPrediction:
+    def prediction(self, prediction_id: str, stale_timeout: int = settings.stale_timeout) -> FeatrixPrediction:
         """
         Get a prediction by its id from the cache.
         """
-        return self._predictions_cache.get(str(prediction_id))
+        if prediction_id not in self._predictions_cache:
+            self.predictions(stale_timeout=stale_timeout)
+        if prediction_id in self._predictions_cache:
+            return self._predictions_cache[prediction_id]
+        raise RuntimeError(f"Prediction {prediction_id} not found in Neural Function {self.id}")
 
     def find_prediction(self, **kwargs) -> Tuple[FeatrixPrediction, Dict]:
         """

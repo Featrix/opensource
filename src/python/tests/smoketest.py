@@ -94,19 +94,19 @@ def wait_for_upload(up, pause=2):
     while up.ready_for_training is False:
         print(f"...waiting for post processing on {up.filename}")
         time.sleep(pause)
-        up = up.by_id(up.id, up.fc)
+        up = up.by_id(up.id, up._fc)
     return up
 
 
 def wait_for_project(project, pause=None):
-    project = project.fc.get_project_by_id(str(project.id))
+    project = project._fc.get_project_by_id(str(project.id))
     if pause is None:
         project.ready(wait_for_completion=True)
-        project = project.by_id(project.id, project.fc)
+        project = project.by_id(project.id, project._fc)
     while project.ready() is False:
         print(f"...waiting for project {project.name} to be ready...")
         time.sleep(pause)
-        project = project.by_id(project, project.fc)
+        project = project.by_id(project, project._fc)
 
     return project
 
@@ -189,7 +189,7 @@ def test_nf(fc, data_dir: Path, test_cases: List[Dict], verbose: bool = False, r
                 if automation == "full":
                     nf, job, job_2 = fc.create_neural_function(target_fields=target_column, project=project_name,
                                                                files=[target_file], wait_for_completion=True)
-                    project = fc.current_project
+                    project = fc.get_project_by_id(nf.project_id)
                     upload = project.associated_uploads[0]
                 else:
                     project = fc.create_project(f"NF smoke test 1 - {uuid.uuid4()}")
@@ -199,8 +199,7 @@ def test_nf(fc, data_dir: Path, test_cases: List[Dict], verbose: bool = False, r
                         print(f"......creating nf in project {project.name}")
                     nf, job, job = fc.create_neural_function(
                         target_fields=target_column,
-                        # try to do it with current_project if automation is upload
-                        project=project if automation == "project" else None,
+                        project=project,
                         wait_for_completion=True
                     )
 
@@ -241,7 +240,7 @@ def test_explorer(fc, data_dir: Path, test_cases: List[Dict], verbose: bool = Fa
 
                 project_name = f"Explorer Test {test_idx} {uuid.uuid4()}"
                 es, models = fc.create_explorer(project=project_name, files=[target_file], wait_for_completion=True)
-                project = fc.current_project
+                project = fc.get_project_by_id(es.project_id)
                 uploads_to_delete.append(fc.get_upload(upload_id=project.associated_uploads[0].upload_id))
                 projects_to_delete.append(project)
                 if es is None or es.training_state != TrainingState.COMPLETED:
@@ -291,17 +290,15 @@ def test_es(fc, data_dir: Path, test_cases: List[Dict], verbose: bool = False, r
                 if automation == "full":
                     es, job = fc.create_embedding_space(project=project_name, name="ES test",
                                                          files=[target_file], wait_for_completion=True)
-                    project = fc.current_project
+                    project = fc.get_project_by_id(es.project_id)
                     upload = project.associated_uploads[0]
                 else:
-                    project = fc.create_project(f"NF smoke test 1 - {uuid.uuid4()}")
+                    project = fc.create_project(project_name)
                     upload = fc.upload_file(target_file, associate=project)
                     project = wait_for_project(project)
-                    if automation == 'project':
-                        es, job = fc.create_embedding_space(project=project,
-                                                                 name="ES {test_idx} test", wait_for_completion=True)
-                    else:
-                        es, job = fc.create_embedding_space(wait_for_completion=True)
+                    es, job = fc.create_embedding_space(project=project,
+                                                        name="ES {test_idx} test",
+                                                        wait_for_completion=True)
                 assert job.finished is True, f"Job {job.id} did not finish with wait_for_completion"
                 assert job.error is False, f"Job {job.id} failed"
 

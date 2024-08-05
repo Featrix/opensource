@@ -61,6 +61,8 @@ class Model(FeatrixBase):
 
     target_columns: Optional[List[str]] = Field(default_factory=list)
     training_rows: int = 0
+
+    training_input_columns: Optional[List[str]] = Field(default_factory=list)
     training_num_uniques: Optional[int] = None
     training_num_not_nulls: Optional[int] = None
     training_target_histogram: Optional[Dict] = None

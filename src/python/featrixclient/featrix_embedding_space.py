@@ -41,11 +41,12 @@ from pydantic import Field, PrivateAttr
 
 from .api_urls import ApiInfo
 from .exceptions import FeatrixException
-from .featrix_model import FeatrixModel
+from .featrix_neural_function import FeatrixNeuralFunction
 from .models import EmbeddingDistanceResponse, ESCreateArgs
 from .models import EmbeddingSpace
 from .models import PydanticObjectId
 from .utils import display_message
+from .config import settings
 
 
 class FeatrixEmbeddingSpace(EmbeddingSpace):
@@ -95,9 +96,9 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
                 .                       .                         .                                       .
 
     """
-    fc: Optional[Any] = None
+    _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class that retrieved or created this project, used for API calls/credentials"""
-    _models_cache: Dict[str, FeatrixModel] = PrivateAttr(default_factory=dict)
+    _models_cache: Dict[str, FeatrixNeuralFunction] = PrivateAttr(default_factory=dict)
     _models_cache_updated: Optional[datetime] = PrivateAttr(default=None)
     _explorer_data: Dict = PrivateAttr(default=None)
 
@@ -120,6 +121,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
     @staticmethod
     def new_embedding_space(
             fc: Any,
+            project: "FeatrixProject" | str,  # noqa forward ref
             name: Optional[str] = None,
             credit_budget: int = 3,
             wait_for_completion: bool = False,
@@ -134,12 +136,14 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         training and the second for the predictive model training).
         """
         from .featrix_job import FeatrixJob
+        from .featrix_project import FeatrixProject  # noqa forward ref
 
         if name is None:
-            name = f"{fc.current_project.name}-{uuid.uuid4()}"
+            name = f"{project.name}-{uuid.uuid4()}" if isinstance(project, FeatrixProject) else \
+                f"Project {uuid.uuid4()}"
 
         es_create_args = FeatrixEmbeddingSpace.create_args(
-            str(fc.current_project.id),
+            str(project.id) if isinstance(project, FeatrixProject) else project,
             name,
             training_budget_credits=credit_budget,
             encoding=encoding or {},
@@ -147,7 +151,6 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             ignore_cols=ignore_cols or [],
             **kwargs
         )
-
         dispatches = fc.api.op("job_es_create", es_create_args)
         jobs = [FeatrixJob.from_job_dispatch(dispatch, fc) for dispatch in dispatches]
 
@@ -162,7 +165,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
                 if job.error:
                     raise FeatrixException(f"Failed to train embedding space {job.embedding_space_id}: {job.error_msg}")
         es = FeatrixEmbeddingSpace.by_id(jobs[-1].embedding_space_id, fc)
-        es.fc = fc
+        es._fc = fc
         return es, jobs[0]
 
     @classmethod
@@ -205,7 +208,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             Dict of the explorer data
         """
         if self._explorer_data is None or force:
-            self._explorer_data = self.fc.api.op("es_get_explorer", embedding_space_id=str(self.id))
+            self._explorer_data = self._fc.api.op("es_get_explorer", embedding_space_id=str(self.id))
         return self._explorer_data
 
     def find_training_jobs(self) -> List["FeatrixJob"]:  # noqa forward ref
@@ -215,8 +218,8 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         """
         from .featrix_job import FeatrixJob
 
-        results = self.fc.api.op("es_get_training_jobs", embedding_space_id=str(self.id))
-        return ApiInfo.reclass(FeatrixJob, results, fc=self.fc)
+        results = self._fc.api.op("es_get_training_jobs", embedding_space_id=str(self.id))
+        return ApiInfo.reclass(FeatrixJob, results, fc=self._fc)
 
     def explorer_training_jobs(
             self,
@@ -243,7 +246,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
                 f"Waiting for job watcher completion (id {wait_for_training_job.id})...")
         if self.es_neural_attrs is None:
             print("es neurals are none!")
-            es = self.by_id(str(self.id), fc=self.fc)
+            es = self.by_id(str(self.id), fc=self._fc)
         else:
             es = self
         if es.es_neural_attrs is None:
@@ -262,71 +265,77 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
                 jobs = es.find_training_jobs()
         return jobs
 
-    def models(self, force: bool = False) -> List[FeatrixModel]:
+    def neural_functions(self, stale_timeout: int = settings.stale_timeout) -> List[FeatrixNeuralFunction]:
         """
         Retrieve all models for this embedding space.  If we don't have them cached, or if force is True, we'll
         get them from a server call synchronously.
         """
 
         since = None
-        if self._models_cache_updated is not None and not force:
+        if (
+                self._models_cache_updated is None or
+                (datetime.utcnow() - self._models_cache_updated).total_seconds() > stale_timeout
+        ):
             since = self._models_cache_updated
-            result = self.fc.check_updates(model=self._models_cache_updated)
-            if result.model is False:
-                return list(self._models_cache.values())
-        self._models_cache_updated = datetime.utcnow()
-        results = self.fc.api.op(
-            "es_get_models", embedding_space_id=str(self._id), since=since
-        )
-        models = ApiInfo.reclass(FeatrixModel, results, fc=self.fc)
-        for model in models:
-            # FIXME: The model isn't getting serialized correctly
-            if hasattr(model, "_id"):
-                model.id = getattr(model, "_id")
-            self._models_cache[str(model.id)] = model
-        return models
+            self._models_cache_updated = datetime.utcnow()
+            results = self._fc.api.op(
+                "es_get_models", embedding_space_id=str(self._id), since=since
+            )
+            models = ApiInfo.reclass(FeatrixNeuralFunction, results, fc=self._fc)
+            for model in models:
+                # FIXME: The model isn't getting serialized correctly
+                if hasattr(model, "_id"):
+                    model.id = getattr(model, "_id")
+                self._models_cache[str(model.id)] = model
+        return list(self._models_cache.values())
 
-    def model(
-        self, model_id: str | PydanticObjectId, force: bool = False
-    ) -> FeatrixModel:
+    def neural_function(
+            self,
+            model_id: str | PydanticObjectId,
+            stale_timeout: int = settings.stale_timeout,
+    ) -> FeatrixNeuralFunction:
         """
         Get a model by it's id from the cache or server (if not in the cache or force is True)
 
         Arguments:
             model_id: The ID of the model to retrieve
-            force: If True, force a refresh of the model from the server
+            stale_timeout: The number of seconds to wait before refreshing the cache
 
         Returns:
-            FeatrixModel object
+            FeatrixNeuralFunction object
         """
         model_id = str(model_id)
-        if not force:
-            if model_id in self._models_cache:
-                return self._models_cache[model_id]
-        result = self.fc.api.op(
-            "es_get_model", embedding_space_id=str(self.id), model_id=str(model_id)
-        )
-        model = ApiInfo.reclass(FeatrixModel, result, fc=self.fc)
-        self._models_cache[model_id] = model
-        return model
+        if (
+                self._models_cache_updated is None or
+                model_id not in self._models_cache or
+                (datetime.utcnow() - self._models_cache_updated).total_seconds() > stale_timeout
+        ):
+            result = self._fc.api.op(
+                "es_get_model", embedding_space_id=str(self.id), model_id=str(model_id)
+            )
+            model = ApiInfo.reclass(FeatrixNeuralFunction, result, fc=self._fc)
+            self._models_cache[model_id] = model
+        if model_id in self._models_cache:
+            return self._models_cache[model_id]
+        raise RuntimeError(f"Model {model_id} not found in Embedding space {self.name} (id={self.id})")
 
     def histogram(self) -> EmbeddingDistanceResponse:
         """
         Make call to get the histogram of this embedding space from the server.
         """
-        results = self.fc.api.op("es_get_histogram", embedding_space_id=str(self.id))
+        results = self._fc.api.op("es_get_histogram", embedding_space_id=str(self.id))
         return results
 
     def distance(self) -> EmbeddingDistanceResponse:
         """
         Make the call to get the distance of the embedding space from the server.
         """
-        results = self.fc.api.op("es_get_distance", embedding_space_id=str(self.id))
+        results = self._fc.api.op("es_get_distance", embedding_space_id=str(self.id))
         return results
 
     def delete(self) -> "FeatrixEmbeddingSpace":
         """
         Delete this embedding space off the server
         """
-        result = self.fc.api.op("es_delete", embedding_space_id=str(self.id))
-        return ApiInfo.reclass(FeatrixEmbeddingSpace, result, fc=self.fc)
+        result = self._fc.api.op("es_delete", embedding_space_id=str(self.id))
+        return ApiInfo.reclass(FeatrixEmbeddingSpace, result, fc=self._fc)

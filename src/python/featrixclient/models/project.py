@@ -98,6 +98,8 @@ class Project(FeatrixBase):
     has_haystack: bool = False
     has_feeds: bool = False
 
+    gui_color: Optional[str] = "#cccccc"
+
     name: str
     organization_id: PydanticObjectId
     # project_type: ProjectType
@@ -111,13 +113,24 @@ class Project(FeatrixBase):
     # self.get_ignore_cols -> self.ignore_cols
     ignore_cols: List[str] = Field(default_factory=list)
     focus_cols: List[str]  = Field(default_factory=list)
-    type_overrides: List[str] = Field(default_factory=list)
+    encoder_overrides: Optional[List[dict]] = None
 
     mappings: list[ProjectTableMapping] = []
     user_meta: Dict[str, Any] = Field(default_factory=dict)
 
     readme_text: Optional[str] = None  # = Field(default_factory=str)
     banner_text: Optional[str] = None
+
+    # How do we deprecate a field here?
+    type_overrides: Optional[List[str]] = None  # DEPRECATED
+
+    haystack_config: Optional[dict] = None  # format TBD - just need a spot for it right now.
+    haystack_results: Optional[list] = None  # format TBD - just need a spot for it right now.
+    haystack_ad_hoc_results: Optional[list] = None  # for ad hoc run results...
+
+    # A list of invoices that have been created for this project for training.  Subscriptions (haystack) projects
+    # don't keep track of their invoices since they are monthly/annual, these are adhoc invoices for training
+    invoice_records: List[ProjectInvoiceRecord] = Field(default_factory=list)
 
 
 class ProjectCreateRequest(FModel):

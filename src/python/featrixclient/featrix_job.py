@@ -64,7 +64,7 @@ class FeatrixJob(Job):
     It contains full details about the job, including, if it is still running, the incremental status of the job
     itself.
     """
-    fc: Optional[Any] = Field(default=None, exclude=True)
+    _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
     # _latest_job_result: Optional[JobResults] = PrivateAttr(default=None)
 
@@ -100,7 +100,7 @@ class FeatrixJob(Job):
     #     return self._latest_job_result.message if self._latest_job_result else None
 
     def check(self):
-        return FeatrixJob.by_id(str(self.id), self.fc)
+        return FeatrixJob.by_id(str(self.id), self._fc)
 
     @staticmethod
     def wait_for_jobs(
@@ -125,7 +125,7 @@ class FeatrixJob(Job):
         cnt = len(jobs)
         while True:
             done = errors = 0
-            jobs = [job.by_id(job.id, fc) for job in jobs]
+            jobs = [job.by_id(str(job.id), fc) for job in jobs]
             working = []
             for job in jobs:
                 if job.finished is True:
@@ -153,7 +153,7 @@ class FeatrixJob(Job):
             display_message(f"{message if message else 'Status:'} "
                             f"{job.incremental_status.message if job.incremental_status else 'No status yet'}")
             time.sleep(5)
-            job = job.by_id(str(self.id), self.fc)
+            job = job.by_id(str(self.id), self._fc)
         display_message(
             f"{message if message else 'Status:'} "
             f"{job.incremental_status.message if job.incremental_status else 'Completed'}"
@@ -164,7 +164,7 @@ class FeatrixJob(Job):
     def check_guardrails(
         cls,
         fc: Any,
-        model: "FeatrixModel",  # noqa F821 forward ref
+        model: "FeatrixNeuralFunction",  # noqa F821 forward ref
         query: List[Dict] | Dict,
         issues_only: bool = False,
     ) -> "FeatrixJob":
@@ -173,7 +173,7 @@ class FeatrixJob(Job):
 
         Arguments:
             fc: Featrix: the Featrix class that is making the request
-            model: FeatrixModel: the model to check guardrails on
+            model: FeatrixNeuralFunction: the model to check guardrails on
             query: List[Dict] | Dict: the query or list of queries to check
             issues_only: bool: if True, only return the issues, not the full results
 

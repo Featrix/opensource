@@ -1,3 +1,4 @@
+#  -*- coding: utf-8 -*-
 #############################################################################
 #
 #  Copyright (c) 2024, Featrix, Inc. All rights reserved.
@@ -26,18 +27,28 @@
 #  Yes, you can see this file, but Featrix, Inc. retains all rights.
 #
 #############################################################################
-from __future__ import annotations
+from typing import Optional
 
-from .networkclient import __version__ as __version__
-from .networkclient import Featrix  # noqa F401
-from .networkclient import new_client  # noqa F401
-from .featrix_project import FeatrixProject  # noqa F401
-from .featrix_embedding_space import FeatrixEmbeddingSpace  # noqa F401
-from .featrix_neural_function import FeatrixNeuralFunction  # noqa F401
-from .featrix_upload import FeatrixUpload  # noqa F401
-from .featrix_job import FeatrixJob  # noqa F401
-from .featrix_predictions import FeatrixPrediction  # noqa F401
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-"""
-Featrix Client Docstring Test
-"""
+
+class Settings(BaseSettings):
+    """
+    Settings for the Featrix client.
+    """
+
+    model_config = SettingsConfigDict(
+        extra="allow",
+        # Things in .env's or your environment should be prefixed with FEATRIX_,
+        # but this is stripped for the actual key name in code.
+        env_prefix="FEATRIX_",
+    )
+    # The API key for the Featrix client
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
+
+    stale_timeout: int = Field(default=10)
+
+
+settings = Settings()

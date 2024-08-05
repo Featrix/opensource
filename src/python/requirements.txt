@@ -1,5 +1,6 @@
 pydantic[email]>=2.5.0
 pydantic_core>=2.14.5
+pydantic_settings>=2.4.0
 bson
 fastapi>=0.106.0
 pandas>=2.1.4

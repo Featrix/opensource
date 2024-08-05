@@ -35,7 +35,7 @@ from typing import List
 from typing import Optional
 from typing import Tuple
 
-from pydantic import Field
+from pydantic import Field, PrivateAttr
 
 from .api_urls import ApiInfo
 from .models import Prediction
@@ -45,7 +45,7 @@ class FeatrixPrediction(Prediction):
     """
     Represents a prediction that was run against a neural function (aka predictive model).
     """
-    fc: Optional[Any] = Field(default=None, exclude=True)
+    _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
 
 
@@ -53,7 +53,7 @@ class FeatrixPrediction(Prediction):
     def all(
         cls,
         fc: Any,
-        model: Optional["FeatrixModel" | str] = None,  # noqa F821
+        model: Optional["FeatrixNeuralFunction" | str] = None,  # noqa F821
     ) -> List[FeatrixPrediction]:
         """
         Get all predictions for a given model.
@@ -65,9 +65,9 @@ class FeatrixPrediction(Prediction):
         Returns:
             List[FeatrixPrediction]: List of predictions
         """
-        from .featrix_model import FeatrixModel
+        from .featrix_neural_function import FeatrixNeuralFunction
 
-        model_id = model.id if isinstance(model, FeatrixModel) else model
+        model_id = model.id if isinstance(model, FeatrixNeuralFunction) else model
         predictions = fc.api.op("models_get_predictions", model_id=model_id)
         return ApiInfo.reclass(cls, predictions, fc=fc)
 

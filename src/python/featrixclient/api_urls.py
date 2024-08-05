@@ -301,6 +301,9 @@ class ApiInfo(BaseModel):
     @staticmethod
     def reclass(parent, model, **kwargs):
         def augment(obj):
+            fc = kwargs.pop("fc", None)
+            if fc:
+                setattr(obj, "_fc", fc)
             for k, v in kwargs.items():
                 setattr(obj, k, v)
             # For now, fix the issue with _id / id

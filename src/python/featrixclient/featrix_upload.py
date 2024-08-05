@@ -35,18 +35,11 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, PrivateAttr
 
 from .api_urls import ApiInfo
 from .models.upload import Upload
-
-
-#  -*- coding: utf-8 -*-
-#
-#  Copyright (c) 2024 Featrix, Inc, All Rights Reserved
-#
-#  Proprietary and Confidential.  Unauthorized use, copying or dissemination
-#  of these materials is strictly prohibited.
+from .config import settings
 
 
 class FeatrixUpload(Upload):
@@ -54,7 +47,7 @@ class FeatrixUpload(Upload):
     Represents a file upload to Featrix server for use in training.  This is the metadata of the file, including
     the results of Featrix's analysis of the file and possible enrichments.
     """
-    fc: Optional[Any] = Field(default=None, exclude=True)
+    _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
 
 
@@ -124,8 +117,8 @@ class FeatrixUpload(Upload):
         Returns:
             FeatrixUpload: The upload that was deleted
         """
-        results = self.fc.api.op("uploads_delete", upload_id=self.id)
-        return ApiInfo.reclass(FeatrixUpload, results, fc=self.fc)
+        results = self._fc.api.op("uploads_delete", upload_id=self.id)
+        return ApiInfo.reclass(FeatrixUpload, results, fc=self._fc)
 
     def jobs(self):
         """
@@ -134,5 +127,5 @@ class FeatrixUpload(Upload):
         Returns:
             List[FeatrixJob]: List of jobs associated with this upload
         """
-        results = self.fc.api.op("uploads_get_jobs", upload_id=self.id)
-        return ApiInfo.reclass(FeatrixUpload, results, fc=self.fc)
+        results = self._fc.api.op("uploads_get_jobs", upload_id=self.id)
+        return ApiInfo.reclass(FeatrixUpload, results, fc=self._fc)
