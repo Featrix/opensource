@@ -450,6 +450,8 @@ class Featrix:
         if files is not None:
             self.upload_files(files, associate=project)
             upload_processing_wait = True
+            # Get the refreshed version
+            project = self._projects[project.id]
 
         if project.ready(wait_for_completion=upload_processing_wait) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
