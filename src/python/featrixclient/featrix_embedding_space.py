@@ -392,13 +392,13 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             raise FeatrixException("Project not ready for training, datafiles still being processed")
 
         jobs = FeatrixNeuralFunction.new_neural_function(
-            self,
-            project,
-            target_fields,
-            credit_budget,
-            encoder,
-            ignore_cols,
-            focus_cols,
+            fc=self._fc,
+            project=project,
+            target_field=target_fields,
+            credit_budget=credit_budget,
+            encoder=encoder,
+            ignore_cols=ignore_cols,
+            focus_cols=focus_cols,
             embedding_space=self,
             **kwargs
         )
