@@ -122,7 +122,7 @@ class Project(FeatrixBase):
     banner_text: Optional[str] = None
 
     # How do we deprecate a field here?
-    type_overrides: Optional[List[str]] = None  # DEPRECATED
+    type_overrides: Optional[List] = None  # DEPRECATED
 
     haystack_config: Optional[dict] = None  # format TBD - just need a spot for it right now.
     haystack_results: Optional[list] = None  # format TBD - just need a spot for it right now.

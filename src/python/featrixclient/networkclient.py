@@ -175,7 +175,32 @@ class Featrix:
         Returns:
             FeatrixProject: The project object found in the cache
         """
-        return self._projects.get(str(project_id))
+        result = self._projects.get(str(project_id))
+        if result is None:
+            self.projects()
+            result = self._projects.get(str(project_id))
+        result._fc = self # XXX???
+        return result
+     
+    def get_project_by_name(self, name: str) -> FeatrixProject:
+        """
+        Find a project in the projects cache by its name (FeatrixProject.name)
+
+        Returns:
+            FeatrixProject: The project object found in the cache
+        """
+        self.projects()
+        matches = []
+        for _, v in self._projects.items():
+            if v.name == name:
+                matches.append(v)
+        if len(matches) == 0:
+            return None
+        if len(matches) > 1:
+            # uh ohh.
+            return matches
+        matches[0]._fc = self # XXX???
+        return matches[0]
 
     def create_project(
         self,
