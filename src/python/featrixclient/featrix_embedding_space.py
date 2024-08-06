@@ -412,7 +412,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         for job in jobs:
             if job.error:
                 raise FeatrixJobFailure(job)
-        model = FeatrixNeuralFunction.from_job(jobs[1], self)
+        model = FeatrixNeuralFunction.from_job(jobs[1], self._fc)
         return model, jobs[0], jobs[1]
 
 
