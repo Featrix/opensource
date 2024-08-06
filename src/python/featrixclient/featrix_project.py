@@ -42,7 +42,7 @@ from pydantic import Field
 from pydantic import PrivateAttr
 
 from .api_urls import ApiInfo
-from .exceptions import FeatrixException
+from .exceptions import FeatrixException, FeatrixJobFailure
 from .featrix_embedding_space import FeatrixEmbeddingSpace
 from .featrix_upload import FeatrixUpload
 from .models import Project, NewExplorerArgs, ESCreateArgs
@@ -174,6 +174,72 @@ class FeatrixProject(Project):
                 up = up.by_id(up.id, self._fc)
         display_message("Uploads processed, project ready for training")
         return True
+
+    def create_embedding_space(
+            self,
+            name: Optional[str] = None,
+            credit_budget: int = 3,
+            wait_for_completion: bool = False,
+            encoder: Optional[Dict] = None,
+            ignore_cols: Optional[List[str] | str] = None,
+            focus_cols: Optional[List[str] | str] = None,
+            **kwargs,
+    ) -> Tuple["FeatrixEmbeddingSpace", FeatrixJob]:  # noqa forward ref
+        """
+        Create a new embedding space in the project specified (FeatrixProject or
+        id of a project).
+
+        You do not need to clean nulls or make the data numeric; simply pass in strings or missing values.
+
+        If the wait_for_completion flag is set, this will be synchronous and print periodic messages to the console
+        as the embedding space is trained.  Note that the jobs are enqueued and running so if the notebook is
+        interrupted, reset or crashes, the training will still complete and can be queried by using the methods later.
+
+        In either case this returns a tuple of the `FeatrixEmbeddingSpace` object and the `FeatrixJob` object that
+        created or is creating the job.  `FeatrixEmbeddingSpace.training_state` shows the state of the
+        embedding space, but the `Job` has detailed information about the current status.
+
+        Arguments:
+            project: FeatrixProject or str id of the project to use; if none passed, we create the project
+            name: str -- name of embedding space
+            credit_budget(int): the default credit budget for the training
+            files: a list of dataframes or paths to files to upload and associate with the project
+                        (optional - if you already associated files with the project, this is redundant)
+            wait_for_completion(bool): make this synchronous, printing out status messages while waiting for the
+                                    training to complete
+            encoder: Optional dictionary of encoder overrides to use for the embedding space
+            ignore_cols: Optional list of columns to ignore in the training  (a string of comma separated
+                                                                            column names or a list of strings)
+            focus_cols: Optional list of columns to focus on in the training (a string of comma separated
+                                                                            column names or a list of strings)
+            **kwargs -- any other fields to ESCreateArgs() such -- can be called as to specify rows for instance):
+                              create_embedding_space(project, name, credits, files, wait_for_completion, rows=1000)
+        Returns:
+            Tuple(FeatrixEmbeddingSpace, FeatrixJob) -- the featrix model and the jobs associated with training the model
+                         if wait_for_completion is True, the model returned will be fully trained, otherwise the
+                         caller will need ot check on the progress of the jobs and update the model when they are
+                         complete.
+        """
+        from .featrix_embedding_space import FeatrixEmbeddingSpace
+
+        if self.ready(wait_for_completion=wait_for_completion) is False:
+            raise FeatrixException("Project not ready for training, datafiles still being processed")
+        es, job = FeatrixEmbeddingSpace.new_embedding_space(
+            self,
+            self,
+            name=name,
+            credit_budget=credit_budget,
+            encoder=encoder,
+            ignore_cols=ignore_cols,
+            focus_cols=focus_cols,
+            **kwargs
+        )
+        if wait_for_completion:
+            job = job.wait_for_completion("Training Embedding Space: ")
+        if job.error:
+            raise FeatrixJobFailure(job)
+        es = FeatrixEmbeddingSpace.by_id(job.embedding_space_id, self)
+        return es, job
 
     def save(self) -> FeatrixProject:
         """

@@ -32,15 +32,17 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 import time
+from pathlib import Path
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
 
+import pandas as pd
 from pydantic import Field, PrivateAttr
 
 from .api_urls import ApiInfo
-from .exceptions import FeatrixException
+from .exceptions import FeatrixException, FeatrixJobFailure
 from .featrix_neural_function import FeatrixNeuralFunction
 from .models import EmbeddingDistanceResponse, ESCreateArgs
 from .models import EmbeddingSpace
@@ -319,6 +321,100 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             return self._models_cache[model_id]
         raise RuntimeError(f"Model {model_id} not found in Embedding space {self.name} (id={self.id})")
 
+    def create_neural_function(
+            self,
+            target_fields: str | List[str],
+            credit_budget: int = 3,
+            wait_for_completion: bool = False,
+            encoder: Optional[Dict] = None,
+            ignore_cols: Optional[List[str] | str] = None,
+            focus_cols: Optional[List[str] | str] = None,
+            **kwargs,
+    ) -> Tuple[FeatrixNeuralFunction, FeatrixJob, FeatrixJob]:
+        """
+        Create a new neural function in the given project.  If a project is passed in (can be either a FeatrixProject
+        or the id of a project), we use that.  If the project is a string and not an id, we will assume it's a name
+        and create a new project (if it's none, we will create a name for the project using target_fields).
+
+        If an embedding space is already trained or being trained in the project, we will use that embedding space
+        to train the neural function model, otherwise we will first train an embedding space on the data files included
+        in the project.  If a list of datasets are passed into this function, we will first upload and associate
+        those files with the project being used.
+
+        If the wait_for_completion flag is set, this will be synchronous and
+        print periodic messages to the console or notebook cell.  Note that the jobs are enqueued and running
+        so if the notebook is interrupted, reset or crashes, the training will still complete and can be queried
+        by using the methods get_neural_function or neural_functions.
+
+        In either case, a tuple is returned that includes the model and two FeatrixJob objects -- the first is
+        the embedding space training job, and the second is the model training job.  If the embedding space was
+        already training, the first job will be the last training job for that embedding space.
+
+        The caller, in the case where they do not wait for completion, can follow the progress via the jobs objects
+
+        .. code-block:: python
+
+           model, es_training_job, nf_training_job = create_neural_function("field_name")
+           if nf_training_job.completed is False:
+               nf_training_job = nf_training_job.check()
+               print(nf_training_job.incremental_status)
+
+
+        They can also just wait on the neural function model's field training_state to be set to
+        TrainingState.COMPLETED ("trained")
+
+        Arguments:
+            target_fields: the field name(s) to target in the prediction
+            project: FeatrixProject or str id of the project to use or the name for a new project
+            credit_budget(int): the default credit budget for the training
+            files: a list of dataframes or paths to files to upload and associate with the project
+                        (optional - if you already associated files with the project, this is redundant)
+            wait_for_completion(bool): make this synchronous, printing out status messages while waiting for the
+                                    training to complete
+            encoder: Optional dictionary of encoder overrides to use for the embedding space
+            ignore_cols: Optional list of columns to ignore in the training  (a string of comma separated
+                                                                            column names or a list of strings)
+            focus_cols: Optional list of columns to focus on in the training (a string of comma separated
+                                                                            column names or a list of strings)
+            **kwargs -- any other fields to ESCreateArgs() such -- can be called as to specify rows for instance):
+                              create_embedding_space(project, name, credits, files, wait_for_completion, rows=1000)
+
+        Returns:
+            Tuple(FeatrixNeuralFunction, Job, Job) -- the featrix model and the jobs associated with training the model
+                         if wait_for_completion is True, the model returned will be fully trained, otherwise the
+                         caller will need ot check on the progress of the jobs and update the model when they are
+                         complete.
+        """
+        project = self._fc.get_project_by_id(self.project_id)
+        if project.ready(wait_for_completion=wait_for_completion) is False:
+            raise FeatrixException("Project not ready for training, datafiles still being processed")
+
+        jobs = FeatrixNeuralFunction.new_neural_function(
+            self,
+            project,
+            target_fields,
+            credit_budget,
+            encoder,
+            ignore_cols,
+            focus_cols,
+            embedding_space=self,
+            **kwargs
+        )
+        if wait_for_completion:
+            # If we are leveraging an embedding space we created previously, the job will be marked as finished already
+            fini = []
+            if jobs[0].finished is False:
+                fini.append(jobs[0].wait_for_completion("Step 1/2: "))
+            fini.append(jobs[1].wait_for_completion("Step 2/2: "))
+            jobs = fini
+        for job in jobs:
+            if job.error:
+                raise FeatrixJobFailure(job)
+        model = FeatrixNeuralFunction.from_job(jobs[1], self)
+        return model, jobs[0], jobs[1]
+
+
+
     def histogram(self) -> EmbeddingDistanceResponse:
         """
         Make call to get the histogram of this embedding space from the server.
@@ -339,3 +435,34 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         """
         result = self._fc.api.op("es_delete", embedding_space_id=str(self.id))
         return ApiInfo.reclass(FeatrixEmbeddingSpace, result, fc=self._fc)
+
+    def encode_record(
+            self,
+            upload: pd.DataFrame | str | Path | PydanticObjectId | "FeatrixUpload",
+            label: Optional[str] = None,
+            wait_for_completion: bool = False
+    ) -> "FeatrixJob":
+        from .featrix_upload import FeatrixUpload
+        from .featrix_job import FeatrixJob
+
+        import bson
+
+        if not isinstance(upload, FeatrixUpload):
+            if bson.ObjectId.is_valid(upload):
+                upload = self._fc.get_upload_by_id(upload)
+            else:
+                upload = self._fc.upload_file(upload, label=label, associate=self.project_id)
+                project = self._fc.get_project_by_id(self.project_id)
+                if project.ready(wait_for_completion=True) is False:
+                    raise FeatrixException("Project not ready for training, datafiles still being processed")
+        from featrixclient.models.job_requests import EncodeRecordsArgs
+        encode_args = EncodeRecordsArgs(
+            project_id=str(self.project_id),
+            embedding_space_id=str(self.id),
+            upload_id=str(upload.id)
+        )
+        dispatch = self._fc.api.op("job_encode_records", encode_args)
+        job = FeatrixJob.from_job_dispatch(dispatch, self._fc)
+        if wait_for_completion:
+            job.wait_for_completion(message="Waiting for encoding job to complete...")
+        return job

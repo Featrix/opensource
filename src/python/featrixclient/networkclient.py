@@ -604,7 +604,6 @@ class Featrix:
             self.upload_files(files, associate=project)
             project = self.get_project_by_id(project.id)
 
-
         project = self._projects[project.id]
         if project.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
