@@ -38,6 +38,7 @@ from typing import Optional
 from pydantic import Field, PrivateAttr
 
 from .api_urls import ApiInfo
+from .exceptions import FeatrixException
 from .models.upload import Upload
 from .config import settings
 
@@ -50,6 +51,18 @@ class FeatrixUpload(Upload):
     _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
 
+    @property
+    def fc(self):
+        return self._fc
+
+    @fc.setter
+    def fc(self, value):
+        from .networkclient import Featrix
+
+        if isinstance(value, Featrix) is False:
+            raise FeatrixException("fc must be an instance of Featrix")
+
+        self._fc = value
 
     @classmethod
     def new(

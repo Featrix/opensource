@@ -44,7 +44,7 @@ from pydantic import Field, PrivateAttr
 from .api_urls import ApiInfo
 from .exceptions import FeatrixException, FeatrixJobFailure
 from .featrix_neural_function import FeatrixNeuralFunction
-from .models import EmbeddingDistanceResponse, ESCreateArgs
+from .models import EmbeddingDistanceResponse, ESCreateArgs, JobType
 from .models import EmbeddingSpace
 from .models import PydanticObjectId
 from .utils import display_message
@@ -104,6 +104,19 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
     _models_cache_updated: Optional[datetime] = PrivateAttr(default=None)
     _explorer_data: Dict = PrivateAttr(default=None)
 
+    @property
+    def fc(self):
+        return self._fc
+
+    @fc.setter
+    def fc(self, value):
+        from .networkclient import Featrix
+
+        if isinstance(value, Featrix) is False:
+            raise FeatrixException("fc must be an instance of Featrix")
+
+        self._fc = value
+
     @staticmethod
     def create_args(project_id: str, name: str, **kwargs) -> ESCreateArgs:
         """
@@ -119,6 +132,30 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             if k in ESCreateArgs.__annotations__:
                 setattr(es_create_args, k, v)
         return es_create_args
+
+    def get_jobs(self, active: bool = True, training: bool = True) -> List["FeatrixJob"]:  # noqa forward ref
+        """
+        Return a list of jobs that are associated with this model.  By default it will only
+        return active (not finished) training jobs, but the caller can use the two arguments to control this.
+
+        Arguments:
+            active: bool: If True, only return active jobs
+            training: bool: If True, only return training jobs
+
+        Returns:
+            List[FeatrixJob]: The list of jobs associated with this model
+        """
+        from .featrix_job import FeatrixJob  # noqa forward ref
+
+        jobs = []
+        for job in FeatrixJob.by_embedding_space(self):
+            if active or training:
+                if active and job.finished:
+                    continue
+                if training and job.job_type not in [JobType.JOB_TYPE_ES_CREATE, JobType.JOB_TYPE_ES_TRAIN_MORE]:
+                    continue
+            jobs.append(job)
+        return jobs
 
     @staticmethod
     def new_embedding_space(

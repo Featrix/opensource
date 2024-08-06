@@ -42,7 +42,7 @@ from .api_urls import ApiInfo
 from .exceptions import FeatrixException
 from .featrix_job import FeatrixJob
 from .featrix_predictions import FeatrixPrediction
-from .models import Model
+from .models import Model, JobType
 from .models import ModelFastPredictionArgs
 from .models import NewNeuralFunctionArgs
 from .models import ModelCreateArgs
@@ -99,10 +99,24 @@ class FeatrixNeuralFunction(Model):
         """
         return cls.by_id(str(job.model_id), fc=fc)
 
+    @property
+    def fc(self):
+        return self._fc
+
+    @fc.setter
+    def fc(self, value):
+        from .networkclient import Featrix
+
+        if isinstance(value, Featrix) is False:
+            raise FeatrixException("fc must be an instance of Featrix")
+
+        self._fc = value
+
+
     @staticmethod
     def new_neural_function(
             fc: Any,
-            project: "FeatrixProject" | str,  # noqa froward ref
+            project: "FeatrixProject" | str,  # noqa F821 forward ref
             target_field: str | List[str],
             credit_budget: int = 3,
             encoder: Optional[Dict] = None,
@@ -110,7 +124,7 @@ class FeatrixNeuralFunction(Model):
             focus_cols: Optional[List[str] | str] = None,
             embedding_space: Optional["FeatrixEmbeddingSpace" | str] = None,  # noqa F821 forward ref
             **kwargs
-        ):  # noqa
+        ):
         """
         This creates a chained-job to do training first on an embedding space, and then on the predictive model
         within that embedding space.  It returns a tuple which is the two jobs (the first job for the embedding space
@@ -159,6 +173,29 @@ class FeatrixNeuralFunction(Model):
             job_list = FeatrixEmbeddingSpace.by_id(str(jobs[0].embeddingspace_id), fc)
             jobs.insert(0, job_list[-1])
         return jobs[0], jobs[1]
+
+    def get_jobs(self, active: bool = True, training: bool = True) -> List[FeatrixJob]:
+        """
+        Return a list of jobs that are associated with this model.  By default it will only
+        return active (not finished) training jobs, but the caller can use the two arguments to control this.
+
+        Arguments:
+            active: bool: If True, only return active jobs
+            training: bool: If True, only return training jobs
+
+        Returns:
+            List[FeatrixJob]: The list of jobs associated with this model
+        """
+        jobs = []
+        for job in FeatrixJob.by_neural_function(self):
+            if active or training:
+                if active and job.finished:
+                    continue
+                if training and job.job_type != JobType.JOB_TYPE_MODEL_CREATE:
+                    continue
+            jobs.append(job)
+        return jobs
+
 
     def predict(self, query: Dict | List[Dict]) -> FeatrixPrediction:
         """

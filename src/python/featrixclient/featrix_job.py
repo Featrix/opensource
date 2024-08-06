@@ -87,6 +87,18 @@ class FeatrixJob(Job):
         # job._latest_job_results = results
         return job
 
+    @property
+    def fc(self):
+        return self._fc
+
+    @fc.setter
+    def fc(self, value):
+        from .networkclient import Featrix
+
+        if isinstance(value, Featrix) is False:
+            raise FeatrixException("fc must be an instance of Featrix")
+        self._fc = value
+
     # def job_results(self):
     #     """
     #     Return the lateest job results for this job.  This will be None if the job is still running.
@@ -101,6 +113,37 @@ class FeatrixJob(Job):
 
     def check(self):
         return FeatrixJob.by_id(str(self.id), self._fc)
+
+    @classmethod
+    def by_model(cls, model: "FeatrixNeuralFunction") -> List["FeatrixJob"]:  # noqa F821 forward ref
+        from .featrix_neural_function import FeatrixNeuralFunction  # noqa F821
+
+        project = model.fc.get_project_by_id(model.project_id)
+        jobs = project.jobs()
+        model_jobs = []
+        for job in jobs:
+            if job.model_id == model.id:
+                model_jobs.append(job)
+        return model_jobs
+
+    by_neural_function = by_model
+
+    @classmethod
+    def by_embedding_space(cls, embedding_space: FeatrixEmbeddingSpace) -> List["FeatrixJob"]:  # noqa F821 forward ref
+        project = embedding_space.fc.get_project_by_id (embedding_space.project_id)
+
+        jobs = project.jobs()
+        es_jobs = []
+        for job in jobs:
+            if job.embedding_space_id == embedding_space.id:
+                es_jobs.append(job)
+        return es_jobs
+
+    @classmethod
+    def by_project(cls, project: "FeatrixProject") -> List["FeatrixJob"]:  # noqa F821 forward ref
+        from .featrix_project import FeatrixProject  # noqa F821
+
+        return project.jobs()
 
     @staticmethod
     def wait_for_jobs(

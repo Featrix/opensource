@@ -168,7 +168,7 @@ class Featrix:
             self._store_project(project)
         return projects
 
-    def get_project_by_id(self, project_id: str | PydanticObjectId) -> FeatrixProject:
+    def get_project_by_id(self, project_id: str | PydanticObjectId) -> FeatrixProject | None:
         """
         Find a project in the projects cache by its id (FeatrixProject.id)
 
@@ -179,10 +179,9 @@ class Featrix:
         if result is None:
             self.projects()
             result = self._projects.get(str(project_id))
-        result._fc = self # XXX???
         return result
      
-    def get_project_by_name(self, name: str) -> FeatrixProject:
+    def get_project_by_name(self, name: str) -> FeatrixProject | List[FeatrixProject] | None:
         """
         Find a project in the projects cache by its name (FeatrixProject.name)
 
@@ -199,7 +198,6 @@ class Featrix:
         if len(matches) > 1:
             # uh ohh.
             return matches
-        matches[0]._fc = self # XXX???
         return matches[0]
 
     def create_project(
@@ -535,7 +533,7 @@ class Featrix:
             focus_cols: Optional[List[str] | str] = None,
             embedding_space: Optional[FeatrixEmbeddingSpace | str] = None,
             **kwargs,
-    ) -> Tuple[FeatrixNeuralFunction, FeatrixJob, FeatrixJob]:
+    ) -> FeatrixNeuralFunction:
         """
         Create a new neural function in the given project.  If a project is passed in (can be either a FeatrixProject
         or the id of a project), we use that.  If the project is a string and not an id, we will assume it's a name
@@ -608,7 +606,6 @@ class Featrix:
         if project.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
 
-        print(f"creating new neural -- kwargs is {kwargs}")
         jobs = FeatrixNeuralFunction.new_neural_function(
             self,
             project,
@@ -631,7 +628,7 @@ class Featrix:
             if job.error:
                 raise FeatrixJobFailure(job)
         model = FeatrixNeuralFunction.from_job(jobs[1], self)
-        return model, jobs[0], jobs[1]
+        return model
 
     def create_explorer(
             self,

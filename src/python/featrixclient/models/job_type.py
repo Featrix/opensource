@@ -59,9 +59,25 @@ class JobType(str, Enum):
     # JOB_TYPE_DETECT_ENCODERS     = "detect-encoders"
     JOB_TYPE_ES_DISTANCE = "embedding-space-distance"
     JOB_TYPE_HAYSTACK_PROCESSING = "haystack-processing"
+    JOB_TYPE_HAYSTACK_WAIT_PREP = "haystack-wait-prep"
+    JOB_TYPE_HAYSTACK_RUN_MODEL = "haystack-run-model"
+    JOB_TYPE_DB_CONVERT_DUMP = "cloud-db-convert-dump"
+
+    JOB_TYPE_EXPLORER_MODEL_SEARCH = "explorer-model-search"
+
+    def is_training_job_type(self):
+        if self in [
+            JobType.JOB_TYPE_ES_TRAIN_MORE,
+            JobType.JOB_TYPE_ES_CREATE,
+            JobType.JOB_TYPE_MODEL_CREATE,
+        ]:
+            return True
+        return False
 
 
 class ChainedJobType(str, Enum):
     CHAINED_JOB_TYPE_NNF = "chained-new-neural-function"
     CHAINED_JOB_TYPE_NNF_WAIT_ES = "chained-new-neural-function-wait-es"
     CHAINED_JOB_TYPE_NEW_EXPLORER = "chained-new-explorer"
+    # CHAINED_JOB_TYPE_HAYSTACK_PREDICTOR = "chained-haystack-predictor"
+

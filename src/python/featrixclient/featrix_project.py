@@ -85,6 +85,20 @@ class FeatrixProject(Project):
     )
     _all_fields_cache_updated: Optional[datetime] = PrivateAttr(default=None)
 
+    @property
+    def fc(self):
+        return self._fc
+
+    @fc.setter
+    def fc(self, value):
+        from .networkclient import Featrix
+
+        if isinstance(value, Featrix) is False:
+            raise FeatrixException("fc must be an instance of Featrix")
+
+        self._fc = value
+
+
     @classmethod
     def new(
         cls,
