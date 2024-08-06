@@ -68,7 +68,7 @@ import pandas as pd
 
 from featrixclient.featrix_embedding_space import FeatrixEmbeddingSpace
 from featrixclient.featrix_job import FeatrixJob
-from featrixclient.models import TrainingState, ProjectType, JobType
+from featrixclient.models import TrainingState, ProjectType, JobType, PydanticObjectId
 from .api import FeatrixApi
 from .exceptions import FeatrixException, FeatrixJobFailure
 from .featrix_neural_function import FeatrixNeuralFunction
@@ -168,7 +168,7 @@ class Featrix:
             self._store_project(project)
         return projects
 
-    def get_project_by_id(self, project_id: str) -> FeatrixProject:
+    def get_project_by_id(self, project_id: str | PydanticObjectId) -> FeatrixProject:
         """
         Find a project in the projects cache by its id (FeatrixProject.id)
 
@@ -476,7 +476,7 @@ class Featrix:
             self.upload_files(files, associate=project)
             upload_processing_wait = True
             # Get the refreshed version
-            project = self._projects[project.id]
+            project = self.get_project_by_id(project.id)
 
         if project.ready(wait_for_completion=upload_processing_wait) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
@@ -602,7 +602,10 @@ class Featrix:
                 raise RuntimeError(f"No such project {project}")
         if files is not None:
             self.upload_files(files, associate=project)
+            project = self.get_project_by_id(project.id)
 
+
+        project = self._projects[project.id]
         if project.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
 
@@ -711,6 +714,7 @@ class Featrix:
 
         if files is not None:
             self.upload_files(files, associate=project)
+            project = self.get_project_by_id(project.id)
 
         if project.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")

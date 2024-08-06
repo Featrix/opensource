@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import warnings
 from collections import namedtuple
+from typing import Any
 
 import pydantic
 from fastapi.responses import FileResponse
@@ -299,9 +300,8 @@ class ApiInfo(BaseModel):
         return response_object
 
     @staticmethod
-    def reclass(parent, model, **kwargs):
+    def reclass(parent, model, fc: Any = None, **kwargs):
         def augment(obj):
-            fc = kwargs.pop("fc", None)
             if fc:
                 setattr(obj, "_fc", fc)
             for k, v in kwargs.items():

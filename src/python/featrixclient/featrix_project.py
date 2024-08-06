@@ -150,6 +150,7 @@ class FeatrixProject(Project):
         Returns:
             bool - True if all data files are ready for training, False otherwise
         """
+        print(f"Called project.ready({wait_for_completion}")
         not_ready = []
         if len(self.associated_uploads) == 0:
             project = self.by_id(self.id, self._fc)
@@ -160,9 +161,11 @@ class FeatrixProject(Project):
             upload = FeatrixUpload.by_id(ua.upload_id, self._fc)
             if upload.ready_for_training is False:
                 not_ready.append(upload)
+        print(f"Initially the not ready count is {len(not_ready)}")
         if len(not_ready) == 0:
             return True
         elif wait_for_completion is False:
+            print("No waiting -- returning false")
             return False
         for up in not_ready:
             while up.ready_for_training is False:
