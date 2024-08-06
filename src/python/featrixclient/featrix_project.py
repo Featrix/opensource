@@ -238,7 +238,7 @@ class FeatrixProject(Project):
             job = job.wait_for_completion("Training Embedding Space: ")
         if job.error:
             raise FeatrixJobFailure(job)
-        es = FeatrixEmbeddingSpace.by_id(job.embedding_space_id, self)
+        es = FeatrixEmbeddingSpace.by_id(job.embedding_space_id, self._fc)
         return es, job
 
     def save(self) -> FeatrixProject:
