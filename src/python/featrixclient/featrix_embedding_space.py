@@ -33,7 +33,7 @@ import uuid
 from datetime import datetime
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Tuple
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -330,7 +330,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             ignore_cols: Optional[List[str] | str] = None,
             focus_cols: Optional[List[str] | str] = None,
             **kwargs,
-    ) -> Tuple[FeatrixNeuralFunction, FeatrixJob, FeatrixJob]:
+    ) -> Tuple[FeatrixNeuralFunction, "FeatrixJob", "FeatrixJob"]:  # noqa forward ref
         """
         Create a new neural function in the given project.  If a project is passed in (can be either a FeatrixProject
         or the id of a project), we use that.  If the project is a string and not an id, we will assume it's a name
@@ -385,6 +385,8 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
                          caller will need ot check on the progress of the jobs and update the model when they are
                          complete.
         """
+        from .featrix_job import FeatrixJob  # noqa forward ref
+
         project = self._fc.get_project_by_id(self.project_id)
         if project.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")

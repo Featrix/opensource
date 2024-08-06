@@ -197,11 +197,16 @@ def test_nf(fc, data_dir: Path, test_cases: List[Dict], verbose: bool = False, r
                     project = wait_for_project(project)
                     if verbose:
                         print(f"......creating nf in project {project.name}")
-                    nf, job, job = fc.create_neural_function(
-                        target_fields=target_column,
-                        project=project,
-                        wait_for_completion=True
-                    )
+                    if automation == "project":
+                        # Here we will create/train the embedding, then create the neural.
+                        es, job = project.create_embedding_space(name="ES test", wait_for_completion=True)
+                        nf, job, job = es.create_neural_function(target_fields=target_column, wait_for_completion=True)
+                    else:
+                        nf, job, job = fc.create_neural_function(
+                            target_fields=target_column,
+                            project=project,
+                            wait_for_completion=True
+                        )
 
                 if 'query' in test_case:
                     nf.predict(test_case['query'])
@@ -296,9 +301,12 @@ def test_es(fc, data_dir: Path, test_cases: List[Dict], verbose: bool = False, r
                     project = fc.create_project(project_name)
                     upload = fc.upload_file(target_file, associate=project)
                     project = wait_for_project(project)
-                    es, job = fc.create_embedding_space(project=project,
-                                                        name="ES {test_idx} test",
-                                                        wait_for_completion=True)
+                    if automation == "project":
+                        es, job = project.create_embedding_space(name="ES test", wait_for_completion=True)
+                    else:
+                        es, job = fc.create_embedding_space(project=project,
+                                                            name="ES {test_idx} test",
+                                                            wait_for_completion=True)
                 assert job.finished is True, f"Job {job.id} did not finish with wait_for_completion"
                 assert job.error is False, f"Job {job.id} failed"
 
