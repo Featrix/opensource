@@ -30,7 +30,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated
+from typing import Annotated, Any
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -542,10 +542,16 @@ class EncodeRecordsArgs(JobArgs):
         description="The ID of the embedding space into which to encode the records",
         title="Embedding Space ID",
     )
-    upload_id: PydanticObjectId = Field(
-        description="The ID of the data set to encode into the embedding space",
-    )
+    # We MIGHT want to encode an upload id... but we might not too.
+    # Loading the upload from S3 is too heavy for the fast path
+    # so I am commenting this out for now. Not sure the blast radius of this
+    # breakage.
+    #
+    # upload_id: Optional[PydanticObjectId] = Field(
+    #     description="The ID of the data set to encode into the embedding space",
+    # )
 
+    records: Any        # data to encode.
 
 class AutoJoinDetectArgs(JobArgs):
     job_type: JobType = Field(

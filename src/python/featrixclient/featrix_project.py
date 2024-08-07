@@ -240,7 +240,7 @@ class FeatrixProject(Project):
 
         if self.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
-        es, job = FeatrixEmbeddingSpace.new_embedding_space(
+        es = FeatrixEmbeddingSpace.new_embedding_space(
             fc=self._fc,
             project=self,
             name=name,
@@ -251,11 +251,12 @@ class FeatrixProject(Project):
             **kwargs
         )
         if wait_for_completion:
-            job = job.wait_for_completion("Training Embedding Space: ")
-        if job.error:
-            raise FeatrixJobFailure(job)
-        es = FeatrixEmbeddingSpace.by_id(job.embedding_space_id, self._fc)
-        return es, job
+            jobs = es.get_jobs()
+            for idx, job in enumerate(jobs):
+                job = job.wait_for_completion("Training Embedding Space: ")
+                if job.error:
+                    raise FeatrixJobFailure(job)
+        return es.refresh()
 
     def save(self) -> FeatrixProject:
         """

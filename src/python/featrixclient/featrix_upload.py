@@ -68,6 +68,27 @@ class FeatrixUpload(Upload):
     def refresh(self):
         return self.by_id(self.id, self.fc)
 
+    def get_jobs(self, active: bool = True) -> List["FeatrixJob"]:  # noqa forward ref
+        """
+        Return a list of jobs that are associated with this upload.  By default, it will only
+        return active (not finished), but the caller can use the two arguments to control this.
+
+        Arguments:
+            active: bool: If True, only return active jobs
+            training: bool: If True, only return training jobs
+
+        Returns:
+            List[FeatrixJob]: The list of jobs associated with this model
+        """
+        from .featrix_job import FeatrixJob  # noqa forward ref
+
+        jobs = []
+        for job in FeatrixJob.by_upload(self):
+            if active and job.finished:
+                continue
+            jobs.append(job)
+        return jobs
+
     @classmethod
     def new(
         cls, fc: Any, filename: str | Path, user_meta: Optional[Dict] = None

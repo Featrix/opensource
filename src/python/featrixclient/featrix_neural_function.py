@@ -115,8 +115,9 @@ class FeatrixNeuralFunction(Model):
     def refresh(self):
         return self.by_id(self.id, self.fc)
 
-    @staticmethod
+    @classmethod
     def new_neural_function(
+            cls,
             fc: Any,
             project: "FeatrixProject" | str,  # noqa F821 forward ref
             target_field: str | List[str],
@@ -126,11 +127,11 @@ class FeatrixNeuralFunction(Model):
             focus_cols: Optional[List[str] | str] = None,
             embedding_space: Optional["FeatrixEmbeddingSpace" | str] = None,  # noqa F821 forward ref
             **kwargs
-        ):
+        ) -> "FeatrixNeuralFunction":
         """
         This creates a chained-job to do training first on an embedding space, and then on the predictive model
-        within that embedding space.  It returns a tuple which is the two jobs (the first job for the embedding space
-        training and the second for the predictive model training).
+        within that embedding space.  It returns the FeatrixNeuralFunction that we created.  The embedding space and
+        training jobs can be retrieved from that using the embedding_space_id and .get_jobs() method respectively.
 
         Arguments:
             fc: the feature client object for submitting API requests
@@ -142,6 +143,8 @@ class FeatrixNeuralFunction(Model):
             focus_cols: Optional columns to focus on during training
             kwargs: Additional arguments to pass to the create embedding or train model functions
 
+        Returns:
+            FeatrixNeuralFunction: The model that was created
         """
         from .featrix_job import FeatrixJob
         from .featrix_project import FeatrixProject
@@ -170,11 +173,13 @@ class FeatrixNeuralFunction(Model):
         )
         dispatches = fc.api.op("job_chained_new_neural_function", neural_request)
         jobs = [FeatrixJob.from_job_dispatch(dispatch, fc) for dispatch in dispatches]
-        if len(jobs) == 1:
-            # If there was already an embedding space, get the last training job for that ES and return it.
-            job_list = FeatrixEmbeddingSpace.by_id(str(jobs[0].embeddingspace_id), fc)
-            jobs.insert(0, job_list[-1])
-        return jobs[0], jobs[1]
+
+        # Get the NF from the NF job in the job list.
+        for job in jobs:
+            if job.job_type == JobType.JOB_TYPE_MODEL_CREATE:
+                return cls.by_id(str(job.model_id), fc)
+        else:
+            raise FeatrixException("No model job found in chained jobs")
 
     def get_jobs(self, active: bool = True, training: bool = True) -> List[FeatrixJob]:
         """

@@ -475,7 +475,7 @@ class Featrix:
 
         if project.ready(wait_for_completion=upload_processing_wait) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
-        es, job = FeatrixEmbeddingSpace.new_embedding_space(
+        es = FeatrixEmbeddingSpace.new_embedding_space(
             self,
             project,
             name=name,
@@ -483,13 +483,9 @@ class Featrix:
             encoder=encoder,
             ignore_cols=ignore_cols,
             focus_cols=focus_cols,
+            wait_for_completion=wait_for_completion,
             **kwargs
         )
-        if wait_for_completion:
-            job = job.wait_for_completion("Training Embedding Space: ")
-        if job.error:
-            raise FeatrixJobFailure(job)
-        es = FeatrixEmbeddingSpace.by_id(job.embedding_space_id, self)
         return es
 
     def display_embedding_explorer(
@@ -603,7 +599,7 @@ class Featrix:
         if project.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
 
-        jobs = FeatrixNeuralFunction.new_neural_function(
+        nf = FeatrixNeuralFunction.new_neural_function(
             self,
             project,
             target_fields,
@@ -614,18 +610,14 @@ class Featrix:
             embedding_space=embedding_space,
             **kwargs
         )
+        es = FeatrixEmbeddingSpace.by_id(nf.embedding_space_id, self)
         if wait_for_completion:
-            # If we are leveraging an embedding space we created previously, the job will be marked as finished already
-            fini = []
-            if jobs[0].finished is False:
-                fini.append(jobs[0].wait_for_completion("Step 1/2: "))
-            fini.append(jobs[1].wait_for_completion("Step 2/2: "))
-            jobs = fini
-        for job in jobs:
-            if job.error:
-                raise FeatrixJobFailure(job)
-        model = FeatrixNeuralFunction.from_job(jobs[1], self)
-        return model
+            jobs = es.get_jobs() + nf.get_jobs()
+            for idx, job in enumerate(jobs):
+                job.wait_for_completion(f"Step {idx}/{len(jobs)}: ")
+                if job.error:
+                    raise FeatrixJobFailure(job)
+        return nf.refresh()
 
     def create_explorer(
             self,

@@ -234,8 +234,14 @@ class ApiInfo(BaseModel):
     job_encode_records: Api = Api(
         "/neural/embedding_space/run-encode-records",
         EncodeRecordsArgs,
+        list,
+        True,
+    )
+    job_fast_encode_records: Api = Api(
+        "/neural/embedding_space/fast-encode-records",
+        EncodeRecordsArgs,
         JobDispatch,
-        False,
+        False,  # this only matters if the response type is a Model (pydantic) - here we just get a list of dicts
     )
     job_es_create_db: Api = Api(
         "/neural/embedding_space/create-database", CreateDBArgs, JobDispatch, False

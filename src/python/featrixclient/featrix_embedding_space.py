@@ -47,7 +47,7 @@ from .featrix_neural_function import FeatrixNeuralFunction
 from .models import EmbeddingDistanceResponse, ESCreateArgs, JobType
 from .models import EmbeddingSpace
 from .models import PydanticObjectId
-from .utils import display_message
+from .utils import display_message, featrix_wrap_pd_read_csv
 from .config import settings
 
 
@@ -160,8 +160,9 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             jobs.append(job)
         return jobs
 
-    @staticmethod
+    @classmethod
     def new_embedding_space(
+            cls,
             fc: Any,
             project: "FeatrixProject" | str,  # noqa forward ref
             name: Optional[str] = None,
@@ -171,7 +172,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             focus_cols: Optional[List[str] | str] = None,
             ignore_cols: Optional[List[str] | str] = None,
             **kwargs
-    ):  # noqa
+    ) -> "FeatrixEmbeddingSpace":
         """
         This creates a chained-job to do training first on an embedding space, and then on the predictive model
         within that embedding space.  It returns a tuple which is the two jobs (the first job for the embedding space
@@ -184,7 +185,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             name = f"{project.name}-{uuid.uuid4()}" if isinstance(project, FeatrixProject) else \
                 f"Project {uuid.uuid4()}"
 
-        es_create_args = FeatrixEmbeddingSpace.create_args(
+        es_create_args = cls.create_args(
             str(project.id) if isinstance(project, FeatrixProject) else project,
             name,
             training_budget_credits=credit_budget,
@@ -195,20 +196,13 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         )
         dispatches = fc.api.op("job_es_create", es_create_args)
         jobs = [FeatrixJob.from_job_dispatch(dispatch, fc) for dispatch in dispatches]
-
+        es = cls.by_id(jobs[-1].embedding_space_id, fc)
         if wait_for_completion:
             for job in jobs:
-                while job.finished is False:
-                    time.sleep(5)
-                    job = job.check()
-                    display_message(
-                        f"{job.job_type}: {job.incremental_status.message if job.incremental_status is not None else ''}"
-                    )
+                job.wait_for_completion(f"Job {job.job_type} (id={job.id}): ")
                 if job.error:
                     raise FeatrixException(f"Failed to train embedding space {job.embedding_space_id}: {job.error_msg}")
-        es = FeatrixEmbeddingSpace.by_id(jobs[-1].embedding_space_id, fc)
-        es._fc = fc
-        return es, jobs[0]
+        return es.refresh()
 
     @classmethod
     def all(cls, fc) -> List["FeatrixEmbeddingSpace"]:
@@ -431,7 +425,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         if project.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
 
-        jobs = FeatrixNeuralFunction.new_neural_function(
+        nf = FeatrixNeuralFunction.new_neural_function(
             fc=self._fc,
             project=project,
             target_field=target_fields,
@@ -443,17 +437,10 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             **kwargs
         )
         if wait_for_completion:
+            training_jobs = nf.get_jobs()
+            training_jobs[0].wait_for_completion(f"Training Neural Function {nf.name}: ")
             # If we are leveraging an embedding space we created previously, the job will be marked as finished already
-            fini = []
-            if jobs[0].finished is False:
-                fini.append(jobs[0].wait_for_completion("Step 1/2: "))
-            fini.append(jobs[1].wait_for_completion("Step 2/2: "))
-            jobs = fini
-        for job in jobs:
-            if job.error:
-                raise FeatrixJobFailure(job)
-        model = FeatrixNeuralFunction.from_job(jobs[1], self._fc)
-        return model, jobs[0], jobs[1]
+        return nf.refresh()
 
 
 
@@ -480,31 +467,23 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
 
     def encode_record(
             self,
-            upload: pd.DataFrame | str | Path | PydanticObjectId | "FeatrixUpload",
-            label: Optional[str] = None,
-            wait_for_completion: bool = False
-    ) -> "FeatrixJob":
-        from .featrix_upload import FeatrixUpload
-        from .featrix_job import FeatrixJob
-
-        import bson
-
-        if not isinstance(upload, FeatrixUpload):
-            if bson.ObjectId.is_valid(upload):
-                upload = self._fc.get_upload_by_id(upload)
-            else:
-                upload = self._fc.upload_file(upload, label=label, associate=self.project_id)
-                project = self._fc.get_project_by_id(self.project_id)
-                if project.ready(wait_for_completion=True) is False:
-                    raise FeatrixException("Project not ready for training, datafiles still being processed")
+            upload: pd.DataFrame | str | Path
+    ) -> List[Dict]:
         from featrixclient.models.job_requests import EncodeRecordsArgs
+
+        if isinstance(upload, pd.DataFrame):
+            records = upload.to_dict(orient="records")
+        else:
+            path = Path(upload)
+            if not path.exists():
+                raise FeatrixException(f"File {path} does not exist")
+            df = featrix_wrap_pd_read_csv(path)
+            records = df.to_dict(orient="records")
         encode_args = EncodeRecordsArgs(
             project_id=str(self.project_id),
             embedding_space_id=str(self.id),
-            upload_id=str(upload.id)
+            # upload_id=str(upload.id),
+            records=records
         )
-        dispatch = self._fc.api.op("job_encode_records", encode_args)
-        job = FeatrixJob.from_job_dispatch(dispatch, self._fc)
-        if wait_for_completion:
-            job.wait_for_completion(message="Waiting for encoding job to complete...")
-        return job
+        result = self._fc.api.op("job_fast_encode_records", encode_args)
+        return result

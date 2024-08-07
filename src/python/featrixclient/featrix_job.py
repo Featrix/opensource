@@ -148,6 +148,13 @@ class FeatrixJob(Job):
 
         return project.jobs()
 
+    @classmethod
+    def by_upload(cls, upload: "FeatrixUpload") -> List["FeatrixJob"]:  # noqa F821 forward ref
+        from .featrix_upload import FeatrixUpload  # noqa F821
+
+        # we return a list here to be consistent with the other by_* methods
+        return [cls.by_id(upload.post_processing_job_id, upload.fc)]
+
     @staticmethod
     def wait_for_jobs(
             fc: Any,

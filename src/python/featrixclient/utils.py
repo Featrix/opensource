@@ -82,8 +82,33 @@ def _find_bad_line_number(file_path: Path | str = None, buffer: bytes | str = No
 
 
 # A wrapper for dealing with CSV files.
+def log_trace(s):
+    print("\tTRACE CSV:", s)
+
+
+def count_newlines(s):
+    parts = s.split("\n")
+    return len(parts)
+
+
+def check_excel_utf16_nonsense(file_path: str):
+    with open(file_path, "rb") as fp:
+        try:
+            bytes = fp.read(16)
+            if bytes[0] == 0xEF and bytes[1] == 0xBB and bytes[2] == 0xBF:
+                # print("CRAZY STUFF MAN")
+                return True
+        except:
+            return False
+
+    return False
+
+
 def featrix_wrap_pd_read_csv(
-    file_path: str | Path = None, buffer: bytes | str = None, on_bad_lines="skip"
+        file_path: str | Path = None,
+        buffer: bytes | str = None,
+        on_bad_lines="skip",
+        trace=False
 ):
     """
     If you want to split CSVs in your notebook and so on when working
@@ -104,10 +129,13 @@ def featrix_wrap_pd_read_csv(
     on_bad_lines: str
         What to do with bad lines. By default, we 'skip', but you may want to 'error'.
         This is passed directly to `pd.read_csv`.
+    trace: bool
+        Trace path through this code for debugging on problematic files.
 
     This can raise exceptions if the file is not found or seems to be empty.
 
     """
+    df = None
     if not file_path and not buffer:
         raise ValueError(
             "No data provided via buffer or path to featrix_wrap_pd_read_csv"
@@ -119,45 +147,189 @@ def featrix_wrap_pd_read_csv(
         sz = os.path.getsize(file_path)
         if sz == 0:
             raise Exception(f"The file {file_path} appears to be 0 bytes long.")
+
+        hasSillyStuff = check_excel_utf16_nonsense(file_path)
+        if hasSillyStuff:
+            new_file = file_path + ".cleaned"
+            with open(new_file, "wb") as fp_new:
+                with open(file_path, "rb") as fp_old:
+                    fp_old.seek(3)
+                    try:
+                        data = fp_old.read()
+                        fp_new.write(data)
+                    except:
+                        print("error copying file...")
+                        traceback.print_exc()
+            if trace:
+                log_trace(f"new file created without Excel bytes: {file_path} -> {new_file}")
+            file_path = new_file
     elif isinstance(buffer, bytes):
         buffer = buffer.decode()
-    buffer_io = StringIO(buffer) if buffer else None
 
+    buffer_io = StringIO(buffer) if buffer else None
+    dialect = None
+    has_header = True
+
+    input_size = None
+    if buffer:
+        buffer_io.seek(0, os.SEEK_END)
+        input_size = buffer_io.tell()
+        buffer_io.seek(0)
+    else:
+        input_size = os.path.getsize(file_path)
+        if trace:
+            log_trace(f"input_size of {file_path} --> {input_size}")
+
+    # get the file size and adjust the sampling based on that.
+    assert input_size is not None
+
+    sample_size = 32 * 1024
+    if input_size < sample_size:
+        sample_size = input_size - 1
+    # else:
+    #     if input_size > (1024 * 1024):
+    #         sample_size = 256 * 1024
+
+    if trace:
+        log_trace(f"sample_size = {sample_size}")
+
+    # sniff
     sniffer = csv.Sniffer()
     if buffer:
-        dialect = sniffer.sniff(buffer)
-        has_header = sniffer.has_header(buffer)
-    else:
-        with open(file_path, newline="", errors='ignore') as csvfile:
-            # For some very wide files, 2K isn't enough.
-            # It's possible 256K isn't either, but one has to draw the line!
+        if trace:
+            log_trace("buffer != None")
+
+        attempts = 0
+        while attempts < 10:
+            if trace:
+                log_trace(f"buffer read: attempt {attempts}")
+            attempts += 1
             try:
-                sample = csvfile.read(32 * 1024)
-            # except UnicodeDecodeError as err:
-                # print("bad unicode:",dir(err))
-                # print("err.reason: ", err.reason)
-                # print("err.start: ", err.start)
-                # print("err.end: ", err.end)
-            except:  # noqa
-                bad_line = _find_bad_line_number(file_path=file_path, buffer=buffer)
-                if bad_line > 0:
-                    print("first BAD LINE WAS ...", bad_line)
+                buffer_io.seek(0)
+                sample_buffer = buffer_io.read(sample_size)
+                num_newlines = count_newlines(sample_buffer)
+                if num_newlines < 10:
+                    if trace:
+                        log_trace(
+                            f"attempt={attempts}: Only {num_newlines} found in first {sample_size} bytes--increasing buffer size")
+                    sample_size *= 2
+                    if sample_size > input_size:
+                        if trace:
+                            log_trace(f"hitting the end of the buffer...")
+                        sample_size = input_size - 1
+                    continue
+                else:
+                    # OK, we have at least 4 lines. we're good
+                    if attempts > 1:
+                        log_trace(f"attempt={attempts}: Found {num_newlines} in first {sample_size} bytes--proceeding")
 
-            dialect = sniffer.sniff(sample)
-            has_header = sniffer.has_header(sample)
+                    dialect = sniffer.sniff(sample_buffer)
+                    has_header = sniffer.has_header(sample_buffer)
+                    break
+            except:
+                traceback.print_exc()
+                print("Not sure what to do here.")
+                pass
+        if trace:
+            log_trace(f"buffer sniffer: header = {has_header}, dialect delimiter = \"{dialect.delimiter}\"")
+    else:
+        # check for a gzip header first.
+        def has_gzip_header(buffer):
+            # GZIP files start with these two bytes
+            GZIP_MAGIC_NUMBER = b'\x1f\x8b'
+            return buffer.startswith(GZIP_MAGIC_NUMBER)
 
-    csv_parameters = {
-        'delimiter': dialect.delimiter,
-        'quotechar': dialect.quotechar,
-        'escapechar': dialect.escapechar,
-        'doublequote': dialect.doublequote,
-        'skipinitialspace': dialect.skipinitialspace,
-        'quoting': dialect.quoting,
-        # Pandas does not support line terminators > 1 but Sniffer returns things like '\r\n'
-        # 'lineterminator': dialect.lineterminator
-    }
+        if trace:
+            log_trace("checking if it's a gzip file...")
+        with open(file_path, "rb") as gzip_file:
+            possible_header = gzip_file.read(10)
+            if has_gzip_header(possible_header):
+                if trace:
+                    log_trace("we got a gzip header, trying to gunzip it...")
+
+                # uncompress it first.
+                # print(f"file_path = __{file_path}__")
+                # print(os.system(f"ls {str(file_path)}*"))
+                os.rename(file_path, f"{file_path}.gz")
+                rc = os.system(f"gunzip -k -t \"{file_path}.gz\"")
+                log_trace(f"gunzip returned {rc}")
+                file_path = Path(str(file_path) + ".gz")
+
+        log_trace(f"working with file_path = {file_path}")
+        with open(file_path, newline="", errors='ignore') as csvfile:
+            attempts = 0
+            all_good = False
+            while attempts < 10:
+                if all_good:
+                    if trace:
+                        log_trace("all_good is True")
+                    break
+                if trace:
+                    log_trace(f"file read: attempt {attempts} to read {file_path}")
+
+                if sample_size > input_size:
+                    if trace:
+                        log_trace(f"hitting the end of the buffer...")
+                    sample_size = input_size - 1
+
+                attempts += 1
+                try:
+                    csvfile.seek(0)
+                    sample = csvfile.read(sample_size)
+                    num_newlines = count_newlines(sample)
+                    if trace:
+                        log_trace(f"got num_newlines = {num_newlines}")
+
+                    if num_newlines < 10:
+                        if trace:
+                            log_trace(
+                                f"attempt={attempts}: Only {num_newlines} found in first {sample_size} bytes--increasing buffer size")
+                        sample_size *= 2
+                        continue
+                    else:
+                        # OK, we have at least 4 lines. we're good
+                        if attempts > 1:
+                            if trace:
+                                log_trace(
+                                    f"attempt={attempts}: Found {num_newlines} in first {sample_size} bytes--proceeding")
+                except:
+                    bad_line = _find_bad_line_number(file_path=file_path, buffer=buffer)
+                    if bad_line > 0:
+                        if trace:
+                            log_trace("first BAD LINE WAS ...{bad_line}")
+
+                try:
+                    dialect = sniffer.sniff(sample)
+                    has_header = sniffer.has_header(sample)
+                    all_good = True
+                except Exception as err:
+                    sample_size *= 2
+                    if trace:
+                        log_trace(
+                            f"attempt={attempts}: got an error: {err}... will try again... new sample size is {sample_size}")
+    if trace:
+        log_trace(
+            f"file sniffer: sample length = {len(sample)}, header = {has_header}, dialect delimiter = \"{dialect.delimiter if dialect is not None else 'None'}\"")
+
+    csv_parameters = {}
+    if dialect is not None:
+        csv_parameters = {
+            'delimiter': dialect.delimiter,
+            'quotechar': dialect.quotechar,
+            'escapechar': dialect.escapechar,
+            'doublequote': dialect.doublequote,
+            'skipinitialspace': dialect.skipinitialspace,
+            'quoting': dialect.quoting,
+            # Pandas does not support line terminators > 1 but Sniffer returns things like '\r\n'
+            # 'lineterminator': dialect.lineterminator
+        }
+
+    # print("has_header = ", has_header)
+    # print("csv_parameters = ", csv_parameters)
 
     if has_header:
+        if trace:
+            log_trace(f"has_header = {has_header}")
         try:
             df = pd.read_csv(
                 file_path or buffer_io,
@@ -167,17 +339,58 @@ def featrix_wrap_pd_read_csv(
                 encoding_errors='ignore',
                 **csv_parameters
             )
+            if trace:
+                log_trace(f"{file_path}: loaded {len(df)} x {len(df.columns)}")
+
+            cols = list(df.columns)
+            if len(cols) <= 1:
+                if trace:
+                    log_trace(f"only got {len(cols)} ... trying without our sniffed parameters")
+                # ok try it without the parameters.
+                df = pd.read_csv(
+                    file_path or buffer_io,
+                    # Pandas doesn't take the same dialect as csv.Sniffer produces so we create csv_parameters
+                    # dialect=dialect,
+                    on_bad_lines=on_bad_lines,
+                    encoding_errors='ignore',
+                )
+
+                if trace:
+                    log_trace(f"{file_path}: loaded {len(df)} x {len(df.columns)}")
+        except pd.errors.ParserError as err:
+            if trace:
+                log_trace(f"{file_path} - got a pandas parser error: {err}")
+
+            try:
+                df = pd.read_csv(
+                    file_path or buffer_io,
+                    # Pandas doesn't take the same dialect as csv.Sniffer produces so we create csv_parameters
+                    # dialect=dialect,
+                    on_bad_lines=on_bad_lines,
+                    encoding_errors='ignore',
+                )
+                if trace:
+                    log_trace(f"{file_path}: loaded {len(df)} x {len(df.columns)}")
+            except:
+                traceback.print_exc()
+                if trace:
+                    log_trace(f"tried again with no parameters and still had an error")
+
         except csv.Error as err:
             bad_line = _find_bad_line_number(file_path=file_path, buffer=buffer)
             if bad_line > 0:
-                print("first BAD LINE WAS ...", bad_line)
+                if trace:
+                    log_trace(f"read_csv() - first BAD LINE WAS ...{bad_line}")
+
             s_err = str(err)
-            print(s_err)
+            if trace:
+                log_trace(f"read_csv() -> error -> {s_err}")
+
             # FIXME: Not sure if there is something we can do if the buffer is hosed?
             if (
-                s_err is not None
-                and s_err.find("malformed") >= 0
-                and file_path is not None
+                    s_err is not None
+                    and s_err.find("malformed") >= 0
+                    and file_path is not None
             ):
                 df = pd.read_csv(
                     file_path,
@@ -187,32 +400,50 @@ def featrix_wrap_pd_read_csv(
                     lineterminator="\n",
                     **csv_parameters
                 )
-                print("recovered")
+                if trace:
+                    log_trace(f"{file_path}: loaded {len(df)} x {len(df.columns)}")
             else:
-                print("c'est la vie")
+                if trace:
+                    log_trace("c'est la vie")
                 raise err
             # endif
 
         # if any of the columns have an 'int' type, rename it.
         if df is not None:
+            if trace:
+                log_trace("df is not None... doing rename of crazy columns")
             cols = list(df.columns)
             renames = {}
             for idx, c in enumerate(cols):
                 if not isinstance(c, str):
                     renames[c] = "column_" + str(c)
             if len(renames) > 0:
+                if trace:
+                    log_trace(f"renaming some columns: {renames}")
                 df.rename(columns=renames, inplace=True)
 
+        if trace:
+            log_trace(f"returning {df}")
         return df
 
     if not has_header:
-        # Try again -- and see.
+        if trace:
+            log_trace(f"has_header = {has_header}")
+            log_trace(f"trying again -- csv_parameters = {csv_parameters}")
 
         try:
-            df = pd.read_csv(file_path or buffer_io,  **csv_parameters)
-            cols = df.columns
+            df = pd.read_csv(file_path or buffer_io, **csv_parameters)
+            if trace:
+                log_trace(f"{file_path}: loaded {len(df)} x {len(df.columns)}")
+
+            cols = list(df.columns)
             if len(cols) >= 0:
-                if cols[0].startswith("Unnamed"):
+                count_unnamed_columns = 0
+                for col_name in cols:
+                    if col_name.startswith("Unnamed"):
+                        count_unnamed_columns += 1
+
+                if count_unnamed_columns == len(cols):
                     # still no good.
                     raise Exception(
                         f"CSV file {file_path} doesn't seem to have a header line, which means it does not "
@@ -221,10 +452,34 @@ def featrix_wrap_pd_read_csv(
                     )
             return df
         except Exception as err:  # noqa - catch anything
-            traceback.print_exc()
-            raise Exception(
-                f"CSV file {file_path} doesn't seem to have a header line, which means it does not "
-                "have labels for the columns. This will make creating predictions on specific targets difficult! [2]"
-            )
+            if trace:
+                log_trace(f"trying again with no parameters specified")
 
-    return None
+            # OK, maybe the csv parameters are crap.
+            df = pd.read_csv(file_path or buffer_io)
+            if trace:
+                log_trace(f"{file_path}: loaded {len(df)} x {len(df.columns)}")
+            cols = list(df.columns)
+
+            if trace:
+                log_trace(f"df = {len(df)} rows x = {cols} cols")
+            if len(cols) >= 0:
+                count_unnamed_columns = 0
+                for col_name in cols:
+                    if col_name.startswith("Unnamed"):
+                        count_unnamed_columns += 1
+
+                if count_unnamed_columns == len(cols):
+                    raise Exception(
+                        f"CSV file {file_path} doesn't seem to have a header line, which means it does not "
+                        "have labels for the columns. This will make creating predictions on specific targets difficult! [2]"
+                    )
+                return df
+            else:
+                raise Exception(
+                    f"CSV file {file_path} doesn't seem to have a multiple columns that we could detect"
+                )
+
+    if trace:
+        log_trace(f"returning {df} at the bitter end")
+    return df
