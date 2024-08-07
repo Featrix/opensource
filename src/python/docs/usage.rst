@@ -30,10 +30,12 @@ What's Included
 The ``featrix-client`` package includes a few key modules:
 
 +-------------------+-----------------------------------------------------------+
-| ``networkclient`` | A `FeatrixTransformerClient` for                          |
-|                   | accessing a Featrix embedding service.                    |
+| ``networkclient`` | A `featrix` client object for                             |
+|                   | accessing the Featrix embedding service.                  |
 +-------------------+-----------------------------------------------------------+
 | ``graphics``      | A set of functions for plotting embedding similarity.     |
+|                   | These got squashed when we cleaned up the API but they    |
+|                   | will be back shortly!                                     |
 ++------------------+-----------------------------------------------------------+
 | ``utils``         | A set of functions for working with data that we have     |
 |                   | found to be useful.                                       |
@@ -45,7 +47,7 @@ Working with Data
 
 .. code-block:: python
 
-    import featrixclient as ft
+    import featrixclient as ft                # pip3 install featrixclient
     import pandas as pd
     df = pd.read_csv(path_to_your_file)
 
@@ -62,28 +64,25 @@ Check out our `live Google Colab demo notebooks <https://featrix.ai/demo>` for e
     # Split the data
     df_train, df_test = train_test_split(df, test_size=0.25)
 
-    # Connect to the Featrix server. This can be deployed on prem with Docker
-    # or Featrix’s public cloud.
-    featrix = ft.Featrix("http://embedding.featrix.com:8080")
+    # Connect to the Featrix service with your API key; create one at https://app.featrix.com/
+    featrix = ft.new_client(client_id=FEATRIX_CLIENT_ID,
+                            client_secret=FEATRIX_CLIENT_SECRET)
 
-    # Here we create a new vector space and train it on the data.
-    vector_space_id = featrix.EZ_NewVectorSpace(df_train)
+    # Here we assume that we have used the GUI to (1) create a demo project called 'DemoProject' and (2) uploaded a training csv file.
+    # If you need a train.csv file, we keep one handy at https://bits.featrix.com/demo-data/github.com-anujtiwari21/train.csv
+    demoProject = featrix.get_project_by_name("DemoProject")
+    
+    # Here we create a new embedding space (foundational model) and train it on the data that we have uploaded into 'demoProject'
+    embeddingSpace = demoProject.create_embedding_space(wait_for_completion=True)
 
-    # We can create multiple models within a single vector space.
-    # This lets us re-use representations for different predictions
-    # without retraining the vector space.
-    # Note, too, that you could train the model on a different training
-    # set than the vector space, if you want to zero in on something
+    # We can create multiple neural functions (predictive models) within an embedding space.
+    # This lets us re-use representations for different predictions without retraining the embedding space.
+    # Note, too, that you could train the model on a different training set than the embedding space, if you want to zero in on something
     # for a specific model.
-    model_id = featrix.EZ_NewModel(vector_space_id,
-                                   "Target_column",
-                                    df_train)
+    nf = embeddingSpace.new_neural_function(target_column='Load_Status')
 
     # Run predictions
-    result = featrix.EZ_PredictionOnDataFrame(vector_space_id,
-                                              Model_id,
-                                              "Target_column",
-                                              df_test)
+    result = nf.predict(df_test)
 
     # Now result is a list of classifications in the same symbols
     # as the target column
