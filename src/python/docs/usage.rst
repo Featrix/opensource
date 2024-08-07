@@ -18,7 +18,7 @@ To use Featrix, first install the client using pip:
 
 .. code-block:: console
 
-   $ pip install featrix-client     # Coming soon.
+   $ pip install featrixclient     # or pip3 install featrixclient
 
 
 You'll also need a Featrix server; you can run the enterprise edition on-site in your environment or use our hosted SaaS.
@@ -79,14 +79,13 @@ Check out our `live Google Colab demo notebooks <https://featrix.ai/demo>` for e
     # This lets us re-use representations for different predictions without retraining the embedding space.
     # Note, too, that you could train the model on a different training set than the embedding space, if you want to zero in on something
     # for a specific model.
-    nf = embeddingSpace.new_neural_function(target_column='Load_Status')
+    nf = embeddingSpace.create_neural_function(target_column='Load_Status',
+                                               wait_for_completion=True)
 
     # Run predictions
     result = nf.predict(df_test)
 
-    # Now result is a list of classifications in the same symbols
-    # as the target column
-
+    # Now result is a list of classifications in the same symbols as the target column
 
 
 Predicting on a probability distribution
@@ -96,14 +95,20 @@ We can specify a few characteristics of an object and ask for the target field p
 
 
     >>> # result_married_only
-    >>> featrix.EZ_Prediction(vector_space_id, model_id, {"Married": "Yes"})
+    >>> nf.predict({"Married": "Yes"})
     {'<UNKNOWN>': 0.0011746988166123629, 'N': 0.33159884810447693, 'Y': 0.6672264933586121}
 
 We can pass in multiple criteria:
 
     >>> # result_married_and_not_graduate
-    >>> featrix.EZ_Prediction(vector_space_id, model_id, {"Education": "Not Graduate", "Married": "Yes"})
+    >>> nf.predict({"Education": "Not Graduate", "Married": "Yes"})
     {'<UNKNOWN>': 0.003182089189067483, 'N': 0.5865148305892944, 'Y': 0.41030314564704895}
+
+
+What is <UNKNOWN>?
+^^^^^^^^^^^^^^^^^^
+
+Featrix includes a built-in symbol which is returned in classification predictions as the string '<UNKNOWN>'. This lets Featrix tell you the probability that the inputs may be too sparse or too different from the training data.
 
 
 Classifying records
@@ -113,10 +118,7 @@ We can determine a category an object belongs to. Typically we'll pass in a list
 
 The interface is similar to sklearn's clf.predict() functions. The target column is specified to ensure it is removed from the query dataframe before passing to the model, if it is present.
 
-    >>> featrix.EZ_PredictionOnDataFrame(vector_space_id,
-                                          model_id,
-                                          "Loan_Status",        # target column name
-                                          query_df)
+    >>> nf.predict(query_df)
      ['Y' 'Y' 'Y' 'Y' 'Y' 'N' 'Y' 'Y' 'N' 'Y' 'Y' 'Y' 'Y' 'Y' 'N' 'Y' 'Y' 'Y'
       'Y' 'Y' 'N' 'Y' 'Y' 'Y' 'Y' 'Y' 'N' 'Y' 'N' 'Y' 'Y' 'N' 'Y' 'Y' 'N' 'N'
       'N' 'Y' 'N' 'Y' 'Y' 'Y' 'N' 'Y' 'Y' 'N' 'Y' 'Y' 'Y' 'Y' 'Y' 'Y' 'Y' 'Y'
