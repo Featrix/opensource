@@ -98,6 +98,8 @@ class FeatrixProject(Project):
 
         self._fc = value
 
+    def refresh(self):
+        return self.by_id(self.id, self.fc)
 
     @classmethod
     def new(
@@ -383,7 +385,7 @@ class FeatrixProject(Project):
             List of FeatrixNeuralFunction instances across this project's embedding spaces
         """
         if embedding_space:
-            if embedding_space.project_id != self.id:
+            if str(embedding_space.project_id) != str(self.id):
                 raise RuntimeError(f"Embedding space {embedding_space.id} belongs to "
                                    f"project {embedding_space.project_id} not this project ({self.name}, id={self.id}")
             embeddings = [embedding_space]

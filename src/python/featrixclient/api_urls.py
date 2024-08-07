@@ -35,7 +35,7 @@ from typing import Any
 
 import pydantic
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from .exceptions import FeatrixException
 from .models import Activity, ProjectDeleteResponse, NewExplorerArgs
@@ -84,6 +84,8 @@ Api = namedtuple("Api", ["url", "arg_type", "response_type", "list_response"])
 
 
 class ApiInfo(BaseModel):
+    model_config = ConfigDict(protected_namespaces=(), extra="allow")
+
     info_get: Api = Api("/info/", None, dict, False)
     users_get_all: Api = Api("/mosaic/users/", None, UserBrief, True)
     users_get_user: Api = Api("/mosaic/users/{email}", None, User, False)
@@ -178,7 +180,7 @@ class ApiInfo(BaseModel):
         False,
     )
     es_get_models: Api = Api(
-        "/neural/embedding_space/{embedding_space_id}/models/",
+        "/neural/embedding_space/{embedding_space_id}/models",
         None,
         Model,
         True,

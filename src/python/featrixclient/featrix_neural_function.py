@@ -42,7 +42,7 @@ from .api_urls import ApiInfo
 from .exceptions import FeatrixException
 from .featrix_job import FeatrixJob
 from .featrix_predictions import FeatrixPrediction
-from .models import Model, JobType
+from .models import Model, JobType, PydanticObjectId
 from .models import ModelFastPredictionArgs
 from .models import NewNeuralFunctionArgs
 from .models import ModelCreateArgs
@@ -76,14 +76,14 @@ class FeatrixNeuralFunction(Model):
         return model_create_args
 
     @classmethod
-    def by_id(cls, model_id: str, fc: Any) -> "FeatrixNeuralFunction":
+    def by_id(cls, model_id: str | PydanticObjectId, fc: Any) -> "FeatrixNeuralFunction":
         """
         Get a predictive model by its id.
 
         Returns:
             FeatrixNeuralFunction: The model if it exists, otherwise None.
         """
-        result = fc.api.op("model_get", model_id=model_id)
+        result = fc.api.op("model_get", model_id=str(model_id))
         return  ApiInfo.reclass(cls, result, fc=fc)
 
     @classmethod
@@ -112,6 +112,8 @@ class FeatrixNeuralFunction(Model):
 
         self._fc = value
 
+    def refresh(self):
+        return self.by_id(self.id, self.fc)
 
     @staticmethod
     def new_neural_function(

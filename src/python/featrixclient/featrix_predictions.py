@@ -59,8 +59,25 @@ class FeatrixPrediction(Prediction):
 
         if isinstance(value, Featrix) is False:
             raise FeatrixException("fc must be an instance of Featrix")
-
         self._fc = value
+
+    def refresh(self):
+        return self.by_id(self.id, self.fc)
+
+    @classmethod
+    def by_id(cls, id: str | PydanticObjectId, fc: Any) -> "FeatrixPrediction":  # noqa F821
+        """
+        Get a prediction by its ID.
+
+        Args:
+            id: Prediction ID
+            fc: Featrix class instance
+
+        Returns:
+            FeatrixPrediction: Prediction instance
+        """
+        prediction = fc.api.op("predictions_get", prediction_id=str(id))
+        return ApiInfo.reclass(cls, prediction, fc=fc)
 
     @classmethod
     def all(

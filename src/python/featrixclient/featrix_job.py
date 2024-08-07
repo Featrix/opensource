@@ -41,7 +41,7 @@ from pydantic import Field, PrivateAttr
 
 from .api_urls import ApiInfo
 from .exceptions import FeatrixException
-from .models import ESCreateArgs
+from .models import ESCreateArgs, PydanticObjectId
 from .models import GuardRailsArgs
 from .models import JobResults
 from .models import ModelPredictionArgs
@@ -69,7 +69,7 @@ class FeatrixJob(Job):
     # _latest_job_result: Optional[JobResults] = PrivateAttr(default=None)
 
     @classmethod
-    def by_id(cls, job_id: str, fc) -> "FeatrixJob":
+    def by_id(cls, job_id: str | PydanticObjectId, fc) -> "FeatrixJob":
         """
         REtrieve a job by its job ID from the server, ignoring cache
 
@@ -80,7 +80,7 @@ class FeatrixJob(Job):
         Returns:
             FeatrixJob new instance of job
         """
-        results = fc.api.op("jobs_get", job_id=job_id)
+        results = fc.api.op("jobs_get", job_id=str(job_id))
         # print(f"Got {results} from job get")
         # print(f"job meta is {results.job_meta}")
         job = ApiInfo.reclass(cls, results.job_meta, fc=fc)
@@ -98,6 +98,9 @@ class FeatrixJob(Job):
         if isinstance(value, Featrix) is False:
             raise FeatrixException("fc must be an instance of Featrix")
         self._fc = value
+
+    def refresh(self):
+        return self.by_id(self.id, self.fc)
 
     # def job_results(self):
     #     """
@@ -122,7 +125,7 @@ class FeatrixJob(Job):
         jobs = project.jobs()
         model_jobs = []
         for job in jobs:
-            if job.model_id == model.id:
+            if str(job.model_id) == str(model.id):
                 model_jobs.append(job)
         return model_jobs
 
@@ -130,12 +133,12 @@ class FeatrixJob(Job):
 
     @classmethod
     def by_embedding_space(cls, embedding_space: FeatrixEmbeddingSpace) -> List["FeatrixJob"]:  # noqa F821 forward ref
-        project = embedding_space.fc.get_project_by_id (embedding_space.project_id)
+        project = embedding_space.fc.get_project_by_id(embedding_space.project_id)
 
         jobs = project.jobs()
         es_jobs = []
         for job in jobs:
-            if job.embedding_space_id == embedding_space.id:
+            if str(job.embedding_space_id) == str(embedding_space.id):
                 es_jobs.append(job)
         return es_jobs
 

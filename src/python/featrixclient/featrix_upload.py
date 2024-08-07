@@ -39,6 +39,7 @@ from pydantic import Field, PrivateAttr
 
 from .api_urls import ApiInfo
 from .exceptions import FeatrixException
+from .models import PydanticObjectId
 from .models.upload import Upload
 from .config import settings
 
@@ -63,6 +64,9 @@ class FeatrixUpload(Upload):
             raise FeatrixException("fc must be an instance of Featrix")
 
         self._fc = value
+
+    def refresh(self):
+        return self.by_id(self.id, self.fc)
 
     @classmethod
     def new(
@@ -94,7 +98,7 @@ class FeatrixUpload(Upload):
         return ApiInfo.reclass(cls, results, fc=fc)
 
     @classmethod
-    def by_id(cls, upload_id: str, fc: Any) -> "FeatrixUpload":
+    def by_id(cls, upload_id: str | PydanticObjectId, fc: Any) -> "FeatrixUpload":
         """
         Get a specific upload by its id
 
@@ -105,7 +109,7 @@ class FeatrixUpload(Upload):
         Returns:
             FeatrixUpload: The upload if it exists, otherwise None
         """
-        results = fc.api.op("uploads_get", upload_id=upload_id)
+        results = fc.api.op("uploads_get", upload_id=str(upload_id))
         return ApiInfo.reclass(cls, results, fc=fc)
 
     @classmethod

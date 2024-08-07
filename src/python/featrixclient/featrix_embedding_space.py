@@ -117,6 +117,9 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
 
         self._fc = value
 
+    def refresh(self):
+        return self.by_id(self.id, self.fc)
+
     @staticmethod
     def create_args(project_id: str, name: str, **kwargs) -> ESCreateArgs:
         """

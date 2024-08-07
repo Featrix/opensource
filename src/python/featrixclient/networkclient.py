@@ -415,7 +415,7 @@ class Featrix:
             ignore_cols: Optional[List[str] | str] = None,
             focus_cols: Optional[List[str] | str] = None,
             **kwargs,
-    ) -> Tuple["FeatrixEmbeddingSpace", FeatrixJob]:  # noqa forward ref
+    ) -> "FeatrixEmbeddingSpace":  # noqa forward ref
         """
         Create a new embedding space in the project specified (FeatrixProject or
         id of a project).
@@ -426,9 +426,9 @@ class Featrix:
         as the embedding space is trained.  Note that the jobs are enqueued and running so if the notebook is
         interrupted, reset or crashes, the training will still complete and can be queried by using the methods later.
 
-        In either case this returns a tuple of the `FeatrixEmbeddingSpace` object and the `FeatrixJob` object that
-        created or is creating the job.  `FeatrixEmbeddingSpace.training_state` shows the state of the
-        embedding space, but the `Job` has detailed information about the current status.
+        In either case this returns the `FeatrixEmbeddingSpace` object. If the flag wait_for_completion was not
+        set (or False), there will be a job running the training, and the caller can get that by calling the
+        .get_jobs() method on the returned embedding space.
 
         Arguments:
             project: FeatrixProject or str id of the project to use; if none passed, we create the project
@@ -446,10 +446,7 @@ class Featrix:
             **kwargs -- any other fields to ESCreateArgs() such -- can be called as to specify rows for instance):
                               create_embedding_space(project, name, credits, files, wait_for_completion, rows=1000)
         Returns:
-            Tuple(FeatrixEmbeddingSpace, FeatrixJob) -- the featrix model and the jobs associated with training the model
-                         if wait_for_completion is True, the model returned will be fully trained, otherwise the
-                         caller will need ot check on the progress of the jobs and update the model when they are
-                         complete.
+            FeatrixEmbeddingSpace -- the featrix model object created
         """
         from .featrix_embedding_space import FeatrixEmbeddingSpace
         from bson import ObjectId
@@ -493,7 +490,7 @@ class Featrix:
         if job.error:
             raise FeatrixJobFailure(job)
         es = FeatrixEmbeddingSpace.by_id(job.embedding_space_id, self)
-        return es, job
+        return es
 
     def display_embedding_explorer(
             self,
@@ -549,19 +546,22 @@ class Featrix:
         so if the notebook is interrupted, reset or crashes, the training will still complete and can be queried
         by using the methods get_neural_function or neural_functions.
 
-        In either case, a tuple is returned that includes the model and two FeatrixJob objects -- the first is
-        the embedding space training job, and the second is the model training job.  If the embedding space was
-        already training, the first job will be the last training job for that embedding space.
+        In either case, this will return the FeatrixNeuralFunction object that was created. If the the
+        wait_for_completion flag is not set (or False), there will be 1-2 jobs that are running the training: one
+        for the embedding space if it wasn't already trained, and the second for the neural function model.  They will
+        be running sequentially, since the neural function is trained against the embedding space.  They can be
+        retrieved by using the .get_jobs() method on the returned object.
 
         The caller, in the case where they do not wait for completion, can follow the progress via the jobs objects
 
         .. code-block:: python
 
-           model, es_training_job, nf_training_job = create_neural_function("field_name")
-           if nf_training_job.completed is False:
-               nf_training_job = nf_training_job.check()
-               print(nf_training_job.incremental_status)
-
+           model = create_neural_function("field_name")
+           training_jobs = model.get_jobs()
+           for job in training_jobs:
+               job = job.check()
+               print(f"{job.job_type}: {job.incremental_status.message}")
+               job.wait_for_completion(f"{job.id}: Training: ")
 
         They can also just wait on the neural function model's field training_state to be set to
         TrainingState.COMPLETED ("trained")
@@ -583,10 +583,7 @@ class Featrix:
                               create_embedding_space(project, name, credits, files, wait_for_completion, rows=1000)
 
         Returns:
-            Tuple(FeatrixNeuralFunction, Job, Job) -- the featrix model and the jobs associated with training the model
-                         if wait_for_completion is True, the model returned will be fully trained, otherwise the
-                         caller will need ot check on the progress of the jobs and update the model when they are
-                         complete.
+            FeatrixNeuralFunction, -- the featrix model that was created
         """
         from bson import ObjectId
         if project is None or (isinstance(project, str) and ObjectId.is_valid(project) is False):
