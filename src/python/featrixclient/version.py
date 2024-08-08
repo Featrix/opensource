@@ -27,6 +27,11 @@
 #  Yes, you can see this file, but Featrix, Inc. retains all rights.
 #
 #############################################################################
+<<<<<<< HEAD
 version = "2024.808.1"
 publish_time = "2024-08-08T13:01:59.972970"
+=======
+version = "2024.808.2"
+publish_time = "2024-08-08T21:01:02.501091"
+>>>>>>> ab14feb (Version)
 __author__ = "Featrix, Inc."
