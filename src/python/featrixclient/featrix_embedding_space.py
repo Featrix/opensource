@@ -424,6 +424,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         project = self._fc.get_project_by_id(self.project_id)
         if project.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
+        project = project.refresh()
 
         nf = FeatrixNeuralFunction.new_neural_function(
             fc=self._fc,

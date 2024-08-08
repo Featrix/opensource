@@ -35,6 +35,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
+import bson
 
 from pydantic import Field, PrivateAttr
 
@@ -151,9 +152,12 @@ class FeatrixNeuralFunction(Model):
         from .featrix_embedding_space import FeatrixEmbeddingSpace
 
         project_id = str(project.id) if isinstance(project, FeatrixProject) else project
+        if bson.ObjectId.is_valid(project_id) is False:
+            raise FeatrixException(f"Invalid project id ({project_id}) passed in new_neural_function")
+        name = kwargs.pop('name', f"Predict_{'_'.join(target_field)}")
         embedding_space_create = FeatrixEmbeddingSpace.create_args(
-            project_id,
-            kwargs.get('name', f"Predict_{'_'.join(target_field)}"),
+            project_id=project_id,
+            name=name,
             encoder=encoder or {},
             ignore_cols=ignore_cols or [],
             focus_cols=focus_cols or [],

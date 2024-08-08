@@ -631,6 +631,7 @@ class Featrix:
         project = self._projects[project.id]
         if project.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException("Project not ready for training, datafiles still being processed")
+        project = project.refresh()
 
         nf = FeatrixNeuralFunction.new_neural_function(
             self,
