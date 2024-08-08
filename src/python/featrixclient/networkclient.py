@@ -282,7 +282,7 @@ class Featrix:
 
     def upload_files(
             self,
-            uploads: List[pd.DataFrame | str | Path],
+            uploads: List[pd.DataFrame | str | Path] | pd.DataFrame | str | Path,
             associate: Optional[FeatrixProject] = None,
             labels: Optional[List[str | None]] = None,
     ) -> List[FeatrixUpload]:
@@ -298,11 +298,15 @@ class Featrix:
             uploads: List of filenames or DataFrames to upload
             associate: a FeatrixProject to associate with
             labels: Optional list of labels to use for the uploads, if not provided, the filenames will be used for the
+            upload: If `uploads` is not used, takes a single upload.
 
         Returns:
             List[FeatrixUpload] - the list of FeatrixUpload objects created
         """
         upload_objects = []
+        if type(uploads) != list:
+            uploads = [uploads]
+
         for idx, upload in enumerate(uploads):
             upload_objects.append(
                 self.upload_file(upload, associate=associate, label=labels[idx] if labels else None)
@@ -372,7 +376,7 @@ class Featrix:
     def get_neural_function(
             self,
             neural_function_id,
-            project: Optional[FeatrixProject | str] = None
+            in_project: Optional[FeatrixProject | str] = None
     ) -> FeatrixNeuralFunction:
         """
         Given a neural function id (and optionally, a project id), return the object that represents
@@ -386,18 +390,49 @@ class Featrix:
             FeatrixNeuralFunction: The model object found
 
         """
-        if not project:
-            if not self._projects:
-                self.projects()
-                for project in self._projects.values():
+        projects = []
+        if not in_project:
+            #if not self._projects:
+            self.projects()
+            for project in self._projects.values():
+                project.neural_functions()
+                projects.append(project)
+        else:
+            self.projects()
+            for project in self._projects.values():
+                if project.id == in_project:
                     project.neural_functions()
-        projects = [project] if project is not None else self._projects.values()
-        for project in projects:
-            model = project.find_neural_function(neural_function_id)
-            if model:
-                return model
-        msg = f"projects {[p.name for p in projects]}" if len(projects) > 1 else f"project {projects[0].name}"
-        raise ValueError(f"No Neural function model id {neural_function_id} in {msg}")
+                    projects.append(project)
+            #projects = [in_project]
+        project = None
+        
+        found_in_project = False
+        for project_entry in projects:
+            if in_project:
+                if str(project_entry.id) == str(in_project):
+                    found_in_project = True
+                    model = project_entry.find_neural_function(neural_function_id)
+                    if model:
+                        return model
+            else:
+                # We try each project if no in_project was specified.
+                try:
+                    print(f"trying project {project_entry.id}...")
+                    model = project_entry.find_neural_function(neural_function_id)
+                    if model:
+                        return model
+                except RuntimeError:
+                    # NF not found -- keep looking.
+                    continue
+        
+        if found_in_project:
+            raise ValueError(f"No neural function with id '{neural_function_id}' in project '{in_project}'")
+        
+        if not in_project:
+            msg = f"{len(projects)} project{'s' if len(projects) != 1 else '' }"
+            raise ValueError(f"No neural function with id '{neural_function_id}' found in any project in '{msg}'")
+
+        raise ValueError(f"No neural function with id '{neural_function_id}'.")
 
     get_model = get_neural_function
     """

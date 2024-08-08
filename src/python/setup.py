@@ -66,7 +66,7 @@ setup(
     long_description=(current / "README.md").read_text(),
     long_description_content_type="text/markdown",
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Environment :: Console",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
@@ -88,6 +88,9 @@ setup(
         "embeddings",
         "vectorize",
         "automl",
+        "xgboost",
+        "neuralnetwork",
+        "eda"
     ],
     # ?
     download_url="https://github.com/Featrix/opensource.git",
