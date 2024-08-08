@@ -392,7 +392,6 @@ class Featrix:
         """
         projects = []
         if not in_project:
-            #if not self._projects:
             self.projects()
             for project in self._projects.values():
                 project.neural_functions()
@@ -403,9 +402,8 @@ class Featrix:
                 if project.id == in_project:
                     project.neural_functions()
                     projects.append(project)
-            #projects = [in_project]
         project = None
-        
+
         found_in_project = False
         for project_entry in projects:
             if in_project:
@@ -417,7 +415,7 @@ class Featrix:
             else:
                 # We try each project if no in_project was specified.
                 try:
-                    print(f"trying project {project_entry.id}...")
+                    # print(f"trying project {project_entry.id}...")
                     model = project_entry.find_neural_function(neural_function_id)
                     if model:
                         return model
