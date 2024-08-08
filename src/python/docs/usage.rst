@@ -108,7 +108,7 @@ We can pass in multiple criteria:
 What is <UNKNOWN>?
 ^^^^^^^^^^^^^^^^^^
 
-Featrix includes a built-in symbol which is returned in classification predictions as the string '<UNKNOWN>'. This lets Featrix tell you the probability that the inputs may be too sparse or too different from the training data.
+Featrix uses a built-in symbol represented in the classification predictions as the string '<UNKNOWN>'. This lets Featrix inform your application of the probability that there's not enough information in the training data to make the prediction, e.g. because of distribution shift. This also adds a layer of safety to Featrix because it helps you avoid acting on over-confident predictions unsupported by data. This can also be used to determine shifts over time.
 
 
 Classifying records
