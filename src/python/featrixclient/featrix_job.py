@@ -63,13 +63,34 @@ class FeatrixJob(Job):
     This represents a job that the Featrix server is running on one of its neural compute clusters on your behalf.
     It contains full details about the job, including, if it is still running, the incremental status of the job
     itself.
+
+    A job has a few key fields that indicate their state:
+        job.finished: bool: True if the job is finished
+        job.error: bool: True if the (finished) job had an error
+        job.incremental_status: JobStatus: the incremental status of the job, if it is still running -- the field
+                    job.incremental_status.message will have a human-readable message about the job's progress
+
+    If you have the job id, you can get it by using the .by_id method, which will return a new instance of the job
+    specified.  If you already have a job, you can use job.refresh() to pull any updates from the server for that job:
+        job = FeatrixJob.by_id(job_id, fc)  # pass in your FeatrixClient instance
+        job = job.refresh()
+
+    There are a handful of class methods for getting jobs that are related to other objects, such as
+    projects (by_project), embedding spaces (by_embedding_space), models (by_model), and uploads (by_upload).
+
+    If you have a job that is currently running, you can also call job. wait_for_completion() to block until the job
+    is finished (qne print out any updates to the job.incremental_status.message field).  This will return the
+    current version (updated) of the Job in a new object:
+            job = job.wait_for_completion("Waiting for job to complete: ")
+            assert job.finished is True
+
     """
     _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
     # _latest_job_result: Optional[JobResults] = PrivateAttr(default=None)
 
     @classmethod
-    def by_id(cls, job_id: str | PydanticObjectId, fc) -> "FeatrixJob":
+    def by_id(cls, job_id: str | PydanticObjectId, fc: Optional["Featrix"] = None) -> "FeatrixJob":  # noqa F821
         """
         REtrieve a job by its job ID from the server, ignoring cache
 
@@ -80,6 +101,11 @@ class FeatrixJob(Job):
         Returns:
             FeatrixJob new instance of job
         """
+        from .networkclient import Featrix
+
+        if fc is None:
+            fc = Featrix.get_instance()
+
         results = fc.api.op("jobs_get", job_id=str(job_id))
         # print(f"Got {results} from job get")
         # print(f"job meta is {results.job_meta}")

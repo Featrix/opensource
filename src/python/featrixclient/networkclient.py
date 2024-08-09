@@ -92,6 +92,7 @@ class Featrix:
     """
 
     debug: bool = False
+    instance: "Featrix" = None
 
     def __init__(
         self,
@@ -147,6 +148,11 @@ class Featrix:
             allow_unencrypted_http=allow_unencrypted_http,
             debug=self.debug,
         )
+        Featrix.instance = self
+
+    @staticmethod
+    def get_instance() -> "Featrix":
+        return Featrix.instance
 
     def _store_project(self, project: FeatrixProject):
         self._projects[str(project.id)] = project

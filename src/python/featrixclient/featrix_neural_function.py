@@ -56,6 +56,14 @@ class FeatrixNeuralFunction(Model):
     Represents a predictive model, also known as a neural function.  It is a model trained against an embedding space
     to provide prediction for a given feature/field.
 
+    A new neural function can be created and trained by using the .new_neural_function() method.  If you have the ID
+    of a neural function model, you can look it up with the .by_id() method, or make sure you have the most recent
+    version of the object with the .refresh() method:
+            nf = FeatrixNeuralFunction.by_id("5f7b1b1b1b1b1b1b1b1b1b1b")
+            // if, for instance, the model wasn't trained when you called by_id, you can use refresh to update it
+            // when the training is over:
+            nf = nf.refresh()
+
     """
     _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
@@ -77,18 +85,22 @@ class FeatrixNeuralFunction(Model):
         return model_create_args
 
     @classmethod
-    def by_id(cls, model_id: str | PydanticObjectId, fc: Any) -> "FeatrixNeuralFunction":
+    def by_id(cls, model_id: str | PydanticObjectId, fc: Optional["Featrix"] = None) -> "FeatrixNeuralFunction":  # noqa F821
         """
         Get a predictive model by its id.
 
         Returns:
             FeatrixNeuralFunction: The model if it exists, otherwise None.
         """
+        from .networkclient import Featrix
+
+        if fc is None:
+            fc = Featrix.get_instance()
         result = fc.api.op("model_get", model_id=str(model_id))
         return  ApiInfo.reclass(cls, result, fc=fc)
 
     @classmethod
-    def from_job(cls, job: FeatrixJob, fc):
+    def from_job(cls, job: FeatrixJob, fc: Optional["Featrix"] = None) -> "FeatrixNeuralFunction":  # noqa F821
         """
         Given a FeatrixJob, retrieve the predictive model that is referenced by the job.
 
@@ -98,6 +110,10 @@ class FeatrixNeuralFunction(Model):
         Returns:
             FeatrixNeuralFunction: The model if it exists, otherwise None.
         """
+        from .networkclient import Featrix
+
+        if fc is None:
+            fc = Featrix.get_instance()
         return cls.by_id(str(job.model_id), fc=fc)
 
     @property

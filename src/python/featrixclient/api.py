@@ -49,7 +49,7 @@ import requests
 from pydantic import BaseModel
 
 from .api_urls import ApiInfo
-from .exceptions import FeatrixBadApiKeyError
+from .exceptions import FeatrixBadApiKeyError, FeatrixException
 from .exceptions import FeatrixConnectionError
 from .exceptions import FeatrixNoApiKeyError
 from .models import ChainedJobType
@@ -257,17 +257,27 @@ class FeatrixApi:
                 print(f"Response status: {response.status_code}")
             # print(f"response back {response}")
         except requests.exceptions.Timeout:
+            if self.debug:
+                print("Response exception: Timeout")
             retries -= 1
             warnings.warn(f"Request timed out, retrying (will retry {retries} times")
             response = None
         except requests.exceptions.HTTPError as err:
+            if self.debug:
+                print(f"Response exception: {err}")
             raise FeatrixConnectionError(url, f"http error: {err}")
         except requests.RequestException as e:
+            if self.debug:
+                print(f"Response exception: {e}")
             raise FeatrixConnectionError(url, f"request error: {e}")
         except Exception as e:
+            if self.debug:
+                print(f"Response exception: {e}")
             raise FeatrixConnectionError(url, f"Unknown error {e}")
 
-        if response:
+        if response is not None:
+            if self.debug:
+                print(f"Processing response with status: {response.status_code}")
             if response.status_code in (HTTPStatus.OK, HTTPStatus.CREATED):
                 return self.fix_ids(response.json())
             elif response.status_code == HTTPStatus.UNAUTHORIZED:
@@ -275,13 +285,13 @@ class FeatrixApi:
                 return self._op(verb, url, headers, args, files, retries - 1)
             elif response.status_code == HTTPStatus.BAD_REQUEST:
                 err_text = self._parse_html_crazy(response.text)  # ??
-                print(f"Bad Request = {err_text}")
+                raise FeatrixException(f"Bad request: {err_text}")
             else:
-                print(f"Unknown error: {response.status_code}, {response.text}")
+                err_text = self.error_message(response) or str(response.status_code)
+                raise FeatrixException(f"Error with request: {err_text}")
             # special_exception = ParseFeatrixError(err_text)
             # if special_exception is not None:
             #     raise special_exception
-
         if retries > 0:
             return self._op(verb, url, headers, args, files, retries=retries - 1)
         raise FeatrixConnectionError(
@@ -499,6 +509,18 @@ class FeatrixApi:
                     new_text = html.unescape(new_text)
                     return new_text
         return "Could not parse: " + str(new_text)
+
+    @staticmethod
+    def error_message(response):
+        try:
+            msg = response.json()
+            if isinstance(msg, dict):
+                txt = msg.get('detail', msg.get('message', msg.get('error', msg)))
+            else:
+                txt = msg
+            return txt
+        except Exception:
+            return response.text
 
     def __del__(self):
         logger.debug("Featrix destructor called")

@@ -61,11 +61,17 @@ class FeatrixProject(Project):
     neural functions.  It allows the user to set default settings for the embedding space, as well as associate
     data files to be used in training the embedding space.
 
+    Generally you can just use the project references you get back from various methods in the Featrix main
+    class (like create_project) but all the operations that are performed on a project at the Featrix level
+    are supported in this class by individual methods.
 
-    Generally you can just use the project references you get
-    back from various methods in the Featrix main class (like create_project) but
-    all the operations that are performed on a project at the Featrix level are supported in this class by
-    individual methods.
+    If you have a project id, you can always get the project back with the by_id method, and if you have a project
+    reference that might be old, you can use project.refresh() to get back an updated version of the project.
+
+    The .ready() method will tell you whether the project is ready for creating/training models.  This really
+    is a proxy for whether any data files you have associated with the project have been processed by the
+    Featrix system (and are ready for inclusion in a training run).  If you pass wait_for_completion=True, it will
+    block (with messages) until all the data files are ready.
 
     """
     _fc: Optional[Any] = PrivateAttr(default=None)
@@ -127,7 +133,7 @@ class FeatrixProject(Project):
         return ApiInfo.reclass(cls, project, fc=fc)
 
     @classmethod
-    def all(cls, fc: Any) -> List[FeatrixProject]:
+    def all(cls, fc: Optional["Featrix"] = None) -> List[FeatrixProject]:  # noqa forward ref
         """
         Retrieve all known projects from the Featrix server.
 
@@ -137,11 +143,15 @@ class FeatrixProject(Project):
         Returns:
             List of FeatrixProject instances
         """
+        from .networkclient import Featrix
+
+        if fc is None:
+            fc = Featrix.get_instance()
         projects = fc.api.op("project_get_all")
         return ApiInfo.reclass(cls, projects, fc=fc)
 
     @classmethod
-    def by_id(cls, project_id, fc) -> FeatrixProject:
+    def by_id(cls, project_id, fc: Optional["Featrix"] = None) -> FeatrixProject:  # noqa forward ref
         """
         Retrieve a project from the Featrix server by its id (`FeatrixProject.id`)
 
@@ -152,6 +162,11 @@ class FeatrixProject(Project):
         Returns:
             FeatrixProject instance
         """
+        from .networkclient import Featrix
+
+        if fc is None:
+            fc = Featrix.get_instance()
+
         return ApiInfo.reclass(
             cls, fc.api.op("project_get", project_id=project_id), fc=fc
         )

@@ -48,6 +48,9 @@ class FeatrixUpload(Upload):
     """
     Represents a file upload to Featrix server for use in training.  This is the metadata of the file, including
     the results of Featrix's analysis of the file and possible enrichments.
+
+    If you have the id of an upload, you can retrieve the object with the .by_id() method, and if you want to
+    refresh a copy of an upload object you have that might have changed, you can use the .refresh() call.
     """
     _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
@@ -119,7 +122,11 @@ class FeatrixUpload(Upload):
         return ApiInfo.reclass(cls, results, fc=fc)
 
     @classmethod
-    def by_id(cls, upload_id: str | PydanticObjectId, fc: Any) -> "FeatrixUpload":
+    def by_id(
+            cls,
+            upload_id: str | PydanticObjectId,
+            fc: Optional["Featrix"] = None  # noqa F821
+    ) -> "FeatrixUpload":
         """
         Get a specific upload by its id
 
@@ -130,11 +137,15 @@ class FeatrixUpload(Upload):
         Returns:
             FeatrixUpload: The upload if it exists, otherwise None
         """
+        from .networkclient import Featrix
+
+        if fc is None:
+            fc = Featrix.get_instance()
         results = fc.api.op("uploads_get", upload_id=str(upload_id))
         return ApiInfo.reclass(cls, results, fc=fc)
 
     @classmethod
-    def by_hash(cls, hash_id: str, fc: Any) -> "FeatrixUpload":
+    def by_hash(cls, hash_id: str, fc: Optional["Featrix"] = None) -> "FeatrixUpload":  # noqa F821
         """
         Get a specific upload by its hash
 
@@ -145,6 +156,10 @@ class FeatrixUpload(Upload):
         Returns:
             FeatrixUpload: The upload if it exists, otherwise None
         """
+        from .networkclient import Featrix
+
+        if fc is None:
+            fc = Featrix.get_instance()
         results = fc.api.op("uploads_get_by_hash", hash_id=hash_id)
         return ApiInfo.reclass(cls, results, fc=fc)
 

@@ -65,7 +65,7 @@ class FeatrixPrediction(Prediction):
         return self.by_id(self.id, self.fc)
 
     @classmethod
-    def by_id(cls, id: str | PydanticObjectId, fc: Any) -> "FeatrixPrediction":  # noqa F821
+    def by_id(cls, id: str | PydanticObjectId, fc: Optional["Featrix"] = None) -> "FeatrixPrediction":  # noqa F821
         """
         Get a prediction by its ID.
 
@@ -76,13 +76,17 @@ class FeatrixPrediction(Prediction):
         Returns:
             FeatrixPrediction: Prediction instance
         """
+        from .networkclient import Featrix
+
+        if fc is None:
+            fc = Featrix.get_instance()
         prediction = fc.api.op("predictions_get", prediction_id=str(id))
         return ApiInfo.reclass(cls, prediction, fc=fc)
 
     @classmethod
     def all(
         cls,
-        fc: Any,
+        fc: Optional["Featrix"] = None,  # noqa F821
         model: Optional["FeatrixNeuralFunction" | str] = None,  # noqa F821
     ) -> List[FeatrixPrediction]:
         """
@@ -96,6 +100,10 @@ class FeatrixPrediction(Prediction):
             List[FeatrixPrediction]: List of predictions
         """
         from .featrix_neural_function import FeatrixNeuralFunction
+        from .networkclient import Featrix
+
+        if fc is None:
+            fc = Featrix.get_instance()
 
         model_id = model.id if isinstance(model, FeatrixNeuralFunction) else model
         predictions = fc.api.op("models_get_predictions", model_id=model_id)
