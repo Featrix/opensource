@@ -90,7 +90,7 @@ setup(
         "automl",
         "xgboost",
         "neuralnetwork",
-        "eda"
+        "eda",
     ],
     # ?
     download_url="https://github.com/Featrix/opensource.git",

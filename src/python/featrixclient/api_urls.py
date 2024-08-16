@@ -35,10 +35,11 @@ from typing import Any
 
 import pydantic
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
+from pydantic import ConfigDict
 
 from .exceptions import FeatrixException
-from .models import Activity, ProjectDeleteResponse, NewExplorerArgs
+from .models import Activity
 from .models import AllFieldsResponse
 from .models import ApiKeyAuthenticationRequest
 from .models import ApiKeyAuthResponse
@@ -64,6 +65,7 @@ from .models import Model
 from .models import ModelCreateArgs
 from .models import ModelFastPredictionArgs
 from .models import ModelPredictionArgs
+from .models import NewExplorerArgs
 from .models import NewNeuralFunctionArgs
 from .models import NNQueryArgs
 from .models import Organization
@@ -72,6 +74,7 @@ from .models import Project
 from .models import ProjectAddMappingsRequest
 from .models import ProjectAssociateRequest
 from .models import ProjectCreateRequest
+from .models import ProjectDeleteResponse
 from .models import ProjectIgnoreColsRequest
 from .models import TrainMoreArgs
 from .models import UpdatedResponse
@@ -144,16 +147,16 @@ class ApiInfo(BaseModel):
     project_add_ignore_columns: Api = Api(
         "/neural/project/ignore-cols", ProjectIgnoreColsRequest, Project, False
     )
-    project_delete: Api = Api("/neural/project/{project_id}", None, ProjectDeleteResponse, False)
+    project_delete: Api = Api(
+        "/neural/project/{project_id}", None, ProjectDeleteResponse, False
+    )
     models_get_predictions: Api = Api(
         "/neural/models/{model_id}/predictions", str, Prediction, True
     )
     models_create_prediction: Api = Api(
         "/neural/models/prediction", ModelFastPredictionArgs, Prediction, False
     )
-    model_get: Api = Api(
-        "/neural/models/{model_id}", None, Model, False
-    )
+    model_get: Api = Api("/neural/models/{model_id}", None, Model, False)
 
     uploads_get_all: Api = Api("/neural/data/upload/", None, Upload, True)
     uploads_create: Api = Api("/neural/data/upload/", "files", Upload, False)
@@ -172,7 +175,12 @@ class ApiInfo(BaseModel):
     es_get: Api = Api(
         "/neural/embedding_space/{embedding_space_id}", None, EmbeddingSpace, False
     )
-    es_get_training_jobs: Api = Api("/neural/embedding_space/{embedding_space_id}/training_jobs", None, JobMeta, True)
+    es_get_training_jobs: Api = Api(
+        "/neural/embedding_space/{embedding_space_id}/training_jobs",
+        None,
+        JobMeta,
+        True,
+    )
     es_get_model: Api = Api(
         "/neural/embedding_space/{embedding_space_id}/model/{model_id}",
         None,
@@ -203,7 +211,9 @@ class ApiInfo(BaseModel):
         EmbeddingSpaceDeleteResponse,
         False,
     )
-    es_get_explorer: Api = Api("/neural/embedding_space/{embedding_space_id}/explorer", None, dict, False)
+    es_get_explorer: Api = Api(
+        "/neural/embedding_space/{embedding_space_id}/explorer", None, dict, False
+    )
     feeds_get: Api = Api("/neural/feeds/", None, FeedWithEventCounts, True)
     feeds_get_create_feed: Api = Api(
         "/neural/feeds/create", FeedCreateArgs, Feed, False

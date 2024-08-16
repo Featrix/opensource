@@ -112,7 +112,7 @@ class Project(FeatrixBase):
     embedding_space_ids: List[PydanticObjectId] = Field(default_factory=list)
     # self.get_ignore_cols -> self.ignore_cols
     ignore_cols: List[str] = Field(default_factory=list)
-    focus_cols: List[str]  = Field(default_factory=list)
+    focus_cols: List[str] = Field(default_factory=list)
     encoder_overrides: Optional[List[dict]] = None
 
     mappings: list[ProjectTableMapping] = []
@@ -124,8 +124,12 @@ class Project(FeatrixBase):
     # How do we deprecate a field here?
     type_overrides: Optional[List] = None  # DEPRECATED
 
-    haystack_config: Optional[dict] = None  # format TBD - just need a spot for it right now.
-    haystack_results: Optional[list] = None  # format TBD - just need a spot for it right now.
+    haystack_config: Optional[
+        dict
+    ] = None  # format TBD - just need a spot for it right now.
+    haystack_results: Optional[
+        list
+    ] = None  # format TBD - just need a spot for it right now.
     haystack_ad_hoc_results: Optional[list] = None  # for ad hoc run results...
 
     # A list of invoices that have been created for this project for training.  Subscriptions (haystack) projects

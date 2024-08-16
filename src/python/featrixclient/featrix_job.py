@@ -29,22 +29,19 @@
 #############################################################################
 from __future__ import annotations
 
+import time
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
-import warnings
-import time
 
-from IPython.display import clear_output
-from pydantic import Field, PrivateAttr
+from pydantic import PrivateAttr
 
 from .api_urls import ApiInfo
 from .exceptions import FeatrixException
-from .models import ESCreateArgs, PydanticObjectId
+from .featrix_embedding_space import FeatrixEmbeddingSpace
 from .models import GuardRailsArgs
-from .models import JobResults
-from .models import ModelPredictionArgs
+from .models import PydanticObjectId
 from .models.job_meta import JobDispatch
 from .models.job_meta import JobMeta as Job
 from .utils import display_message
@@ -85,12 +82,15 @@ class FeatrixJob(Job):
             assert job.finished is True
 
     """
+
     _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
     # _latest_job_result: Optional[JobResults] = PrivateAttr(default=None)
 
     @classmethod
-    def by_id(cls, job_id: str | PydanticObjectId, fc: Optional["Featrix"] = None) -> "FeatrixJob":  # noqa F821
+    def by_id(
+        cls, job_id: str | PydanticObjectId, fc: Optional["Featrix"] = None
+    ) -> "FeatrixJob":  # noqa F821
         """
         REtrieve a job by its job ID from the server, ignoring cache
 
@@ -158,7 +158,9 @@ class FeatrixJob(Job):
     by_neural_function = by_model
 
     @classmethod
-    def by_embedding_space(cls, embedding_space: FeatrixEmbeddingSpace) -> List["FeatrixJob"]:  # noqa F821 forward ref
+    def by_embedding_space(
+        cls, embedding_space: FeatrixEmbeddingSpace
+    ) -> List["FeatrixJob"]:  # noqa F821 forward ref
         project = embedding_space.fc.get_project_by_id(embedding_space.project_id)
 
         jobs = project.jobs()
@@ -183,10 +185,10 @@ class FeatrixJob(Job):
 
     @staticmethod
     def wait_for_jobs(
-            fc: Any,
-            jobs: List["FeatrixJob"],
-            msg: str = "Waiting for jobs: ",
-            cycle: int = 5
+        fc: Any,
+        jobs: List["FeatrixJob"],
+        msg: str = "Waiting for jobs: ",
+        cycle: int = 5,
     ) -> List[FeatrixJob]:
         """
         Given a list of FeatrixJob's, wait for all of them to be completed, periodically updating their status on
@@ -219,7 +221,9 @@ class FeatrixJob(Job):
             full_msg = f"{msg}: {done}/{cnt} completed {errmsg}"
             if len(working):
                 for job in working:
-                    full_msg += f"\n ...Running Job {job.id}: {job.incremental_status.message}"
+                    full_msg += (
+                        f"\n ...Running Job {job.id}: {job.incremental_status.message}"
+                    )
             display_message(full_msg)
             time.sleep(cycle)
 
@@ -229,8 +233,10 @@ class FeatrixJob(Job):
         job = self
         print(f"waiting for completion of job {job.id}")
         while job.finished is False:
-            display_message(f"{message if message else 'Status:'} "
-                            f"{job.incremental_status.message if job.incremental_status else 'No status yet'}")
+            display_message(
+                f"{message if message else 'Status:'} "
+                f"{job.incremental_status.message if job.incremental_status else 'No status yet'}"
+            )
             time.sleep(5)
             job = job.by_id(str(self.id), self._fc)
         display_message(
@@ -273,5 +279,3 @@ class FeatrixJob(Job):
         if jd.error:
             raise FeatrixException(jd.error_message)
         return FeatrixJob.by_id(str(jd.job_id), fc)
-
-

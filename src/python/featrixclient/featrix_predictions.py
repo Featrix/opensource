@@ -30,12 +30,11 @@
 from __future__ import annotations
 
 from typing import Any
-from typing import Dict
 from typing import List
 from typing import Optional
 from typing import Tuple
 
-from pydantic import Field, PrivateAttr
+from pydantic import PrivateAttr
 
 from .api_urls import ApiInfo
 from .exceptions import FeatrixException
@@ -46,6 +45,7 @@ class FeatrixPrediction(Prediction):
     """
     Represents a prediction that was run against a neural function (aka predictive model).
     """
+
     _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
 
@@ -65,7 +65,9 @@ class FeatrixPrediction(Prediction):
         return self.by_id(self.id, self.fc)
 
     @classmethod
-    def by_id(cls, id: str | PydanticObjectId, fc: Optional["Featrix"] = None) -> "FeatrixPrediction":  # noqa F821
+    def by_id(
+        cls, id: str | PydanticObjectId, fc: Optional["Featrix"] = None
+    ) -> "FeatrixPrediction":  # noqa F821
         """
         Get a prediction by its ID.
 

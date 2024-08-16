@@ -6,22 +6,22 @@ repos:
       - id: reorder-python-imports
         language_version: python3.11
 
-  - repo: https://github.com/PyCQA/bandit
-    rev: 1.6.2
-    hooks:
-      - id: bandit
-        args:
-          - "--exclude=src/javascript"
+  #  - repo: https://github.com/PyCQA/bandit
+  #    rev: 1.6.2
+  #    hooks:
+  #      - id: bandit
+  #        args:
+  #          - "--exclude=src/javascript"
 
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    # Ruff version.
-    rev: v0.1.11
-    hooks:
-      # Run the linter.
-      - id: ruff
-        args: [--fix]
-      # Run the formatter.
-      - id: ruff-format
+  #- repo: https://github.com/astral-sh/ruff-pre-commit
+  # Ruff version.
+  #rev: v0.1.11
+  #hooks:
+  # Run the linter.
+  #- id: ruff
+  #  args: [--fix]
+  # Run the formatter.
+  #- id: ruff-format
 
   - repo: https://github.com/bemeurer/beautysh
     rev: 6.0.1

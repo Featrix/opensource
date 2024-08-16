@@ -80,4 +80,3 @@ class ChainedJobType(str, Enum):
     CHAINED_JOB_TYPE_NNF_WAIT_ES = "chained-new-neural-function-wait-es"
     CHAINED_JOB_TYPE_NEW_EXPLORER = "chained-new-explorer"
     # CHAINED_JOB_TYPE_HAYSTACK_PREDICTOR = "chained-haystack-predictor"
-

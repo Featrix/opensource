@@ -35,13 +35,12 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
-from pydantic import Field, PrivateAttr
+from pydantic import PrivateAttr
 
 from .api_urls import ApiInfo
 from .exceptions import FeatrixException
 from .models import PydanticObjectId
 from .models.upload import Upload
-from .config import settings
 
 
 class FeatrixUpload(Upload):
@@ -52,6 +51,7 @@ class FeatrixUpload(Upload):
     If you have the id of an upload, you can retrieve the object with the .by_id() method, and if you want to
     refresh a copy of an upload object you have that might have changed, you can use the .refresh() call.
     """
+
     _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
 
@@ -123,9 +123,9 @@ class FeatrixUpload(Upload):
 
     @classmethod
     def by_id(
-            cls,
-            upload_id: str | PydanticObjectId,
-            fc: Optional["Featrix"] = None  # noqa F821
+        cls,
+        upload_id: str | PydanticObjectId,
+        fc: Optional["Featrix"] = None,  # noqa F821
     ) -> "FeatrixUpload":
         """
         Get a specific upload by its id

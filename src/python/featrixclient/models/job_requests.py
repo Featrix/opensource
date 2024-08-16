@@ -30,7 +30,8 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Annotated, Any
+from typing import Annotated
+from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -119,6 +120,7 @@ class ESWaitToFinish(JobArgs):
     """
     Use this when you want to queue another job in a chain after an embedding space has finished training.
     """
+
     job_type: JobType = Field(
         default=JobType.JOB_TYPE_ES_WAIT_TO_TRAIN,
         frozen=True,
@@ -551,7 +553,8 @@ class EncodeRecordsArgs(JobArgs):
     #     description="The ID of the data set to encode into the embedding space",
     # )
 
-    records: Any        # data to encode.
+    records: Any  # data to encode.
+
 
 class AutoJoinDetectArgs(JobArgs):
     job_type: JobType = Field(

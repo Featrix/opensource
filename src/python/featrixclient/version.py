@@ -27,6 +27,6 @@
 #  Yes, you can see this file, but Featrix, Inc. retains all rights.
 #
 #############################################################################
-version = "2024.808.2"
-publish_time = "2024-08-08T21:01:02.501091"
+version = "2024.808.8"
+publish_time = "2024-08-08T21:13:06.916657"
 __author__ = "Featrix, Inc."

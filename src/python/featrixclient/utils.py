@@ -42,7 +42,7 @@ def running_in_notebook():
     try:
         from IPython import get_ipython
 
-        if 'IPKernelApp' not in get_ipython().config:  # pragma: no cover
+        if "IPKernelApp" not in get_ipython().config:  # pragma: no cover
             return False
     except:  # noqa - anyway this fails, we aren't in a notebook
         return False
@@ -76,8 +76,8 @@ def _find_bad_line_number(file_path: Path | str = None, buffer: bytes | str = No
                 line_number += 1
         except Exception as e:  # noqa
             return line_number
-    except:  # noqa
-        pass
+    except:  # noqa nosec
+        pass  # noqa: S110 nosec: B110
     return -1
 
 
@@ -98,17 +98,17 @@ def check_excel_utf16_nonsense(file_path: str):
             if bytes[0] == 0xEF and bytes[1] == 0xBB and bytes[2] == 0xBF:
                 # print("CRAZY STUFF MAN")
                 return True
-        except:
+        except:  # noqa
             return False
 
     return False
 
 
 def featrix_wrap_pd_read_csv(
-        file_path: str | Path = None,
-        buffer: bytes | str = None,
-        on_bad_lines="skip",
-        trace=False
+    file_path: str | Path = None,
+    buffer: bytes | str = None,
+    on_bad_lines="skip",
+    trace=False,
 ):
     """
     If you want to split CSVs in your notebook and so on when working
@@ -157,11 +157,13 @@ def featrix_wrap_pd_read_csv(
                     try:
                         data = fp_old.read()
                         fp_new.write(data)
-                    except:
+                    except:  # noqa
                         print("error copying file...")
                         traceback.print_exc()
             if trace:
-                log_trace(f"new file created without Excel bytes: {file_path} -> {new_file}")
+                log_trace(
+                    f"new file created without Excel bytes: {file_path} -> {new_file}"
+                )
             file_path = new_file
     elif isinstance(buffer, bytes):
         buffer = buffer.decode()
@@ -181,7 +183,7 @@ def featrix_wrap_pd_read_csv(
             log_trace(f"input_size of {file_path} --> {input_size}")
 
     # get the file size and adjust the sampling based on that.
-    assert input_size is not None
+    assert input_size is not None  # nosec
 
     sample_size = 32 * 1024
     if input_size < sample_size:
@@ -211,32 +213,37 @@ def featrix_wrap_pd_read_csv(
                 if num_newlines < 10:
                     if trace:
                         log_trace(
-                            f"attempt={attempts}: Only {num_newlines} found in first {sample_size} bytes--increasing buffer size")
+                            f"attempt={attempts}: Only {num_newlines} found in first {sample_size} bytes--increasing buffer size"
+                        )
                     sample_size *= 2
                     if sample_size > input_size:
                         if trace:
-                            log_trace(f"hitting the end of the buffer...")
+                            log_trace("hitting the end of the buffer...")
                         sample_size = input_size - 1
                     continue
                 else:
                     # OK, we have at least 4 lines. we're good
                     if attempts > 1:
-                        log_trace(f"attempt={attempts}: Found {num_newlines} in first {sample_size} bytes--proceeding")
+                        log_trace(
+                            f"attempt={attempts}: Found {num_newlines} in first {sample_size} bytes--proceeding"
+                        )
 
                     dialect = sniffer.sniff(sample_buffer)
                     has_header = sniffer.has_header(sample_buffer)
                     break
-            except:
+            except:  # noqa
                 traceback.print_exc()
                 print("Not sure what to do here.")
-                pass
+                pass  # nosec
         if trace:
-            log_trace(f"buffer sniffer: header = {has_header}, dialect delimiter = \"{dialect.delimiter}\"")
+            log_trace(
+                f'buffer sniffer: header = {has_header}, dialect delimiter = "{dialect.delimiter}"'
+            )
     else:
         # check for a gzip header first.
         def has_gzip_header(buffer):
             # GZIP files start with these two bytes
-            GZIP_MAGIC_NUMBER = b'\x1f\x8b'
+            GZIP_MAGIC_NUMBER = b"\x1f\x8b"
             return buffer.startswith(GZIP_MAGIC_NUMBER)
 
         if trace:
@@ -251,12 +258,12 @@ def featrix_wrap_pd_read_csv(
                 # print(f"file_path = __{file_path}__")
                 # print(os.system(f"ls {str(file_path)}*"))
                 os.rename(file_path, f"{file_path}.gz")
-                rc = os.system(f"gunzip -k -t \"{file_path}.gz\"")
+                rc = os.system(f'gunzip -k -t "{file_path}.gz"')  # nosec -- yikes
                 log_trace(f"gunzip returned {rc}")
                 file_path = Path(str(file_path) + ".gz")
 
         log_trace(f"working with file_path = {file_path}")
-        with open(file_path, newline="", errors='ignore') as csvfile:
+        with open(file_path, newline="", errors="ignore") as csvfile:
             attempts = 0
             all_good = False
             while attempts < 10:
@@ -269,7 +276,7 @@ def featrix_wrap_pd_read_csv(
 
                 if sample_size > input_size:
                     if trace:
-                        log_trace(f"hitting the end of the buffer...")
+                        log_trace("hitting the end of the buffer...")
                     sample_size = input_size - 1
 
                 attempts += 1
@@ -283,7 +290,8 @@ def featrix_wrap_pd_read_csv(
                     if num_newlines < 10:
                         if trace:
                             log_trace(
-                                f"attempt={attempts}: Only {num_newlines} found in first {sample_size} bytes--increasing buffer size")
+                                f"attempt={attempts}: Only {num_newlines} found in first {sample_size} bytes--increasing buffer size"
+                            )
                         sample_size *= 2
                         continue
                     else:
@@ -291,8 +299,9 @@ def featrix_wrap_pd_read_csv(
                         if attempts > 1:
                             if trace:
                                 log_trace(
-                                    f"attempt={attempts}: Found {num_newlines} in first {sample_size} bytes--proceeding")
-                except:
+                                    f"attempt={attempts}: Found {num_newlines} in first {sample_size} bytes--proceeding"
+                                )
+                except:  # noqa
                     bad_line = _find_bad_line_number(file_path=file_path, buffer=buffer)
                     if bad_line > 0:
                         if trace:
@@ -306,20 +315,22 @@ def featrix_wrap_pd_read_csv(
                     sample_size *= 2
                     if trace:
                         log_trace(
-                            f"attempt={attempts}: got an error: {err}... will try again... new sample size is {sample_size}")
+                            f"attempt={attempts}: got an error: {err}... will try again... new sample size is {sample_size}"
+                        )
     if trace:
         log_trace(
-            f"file sniffer: sample length = {len(sample)}, header = {has_header}, dialect delimiter = \"{dialect.delimiter if dialect is not None else 'None'}\"")
+            f"file sniffer: sample length = {len(sample)}, header = {has_header}, dialect delimiter = \"{dialect.delimiter if dialect is not None else 'None'}\""
+        )
 
     csv_parameters = {}
     if dialect is not None:
         csv_parameters = {
-            'delimiter': dialect.delimiter,
-            'quotechar': dialect.quotechar,
-            'escapechar': dialect.escapechar,
-            'doublequote': dialect.doublequote,
-            'skipinitialspace': dialect.skipinitialspace,
-            'quoting': dialect.quoting,
+            "delimiter": dialect.delimiter,
+            "quotechar": dialect.quotechar,
+            "escapechar": dialect.escapechar,
+            "doublequote": dialect.doublequote,
+            "skipinitialspace": dialect.skipinitialspace,
+            "quoting": dialect.quoting,
             # Pandas does not support line terminators > 1 but Sniffer returns things like '\r\n'
             # 'lineterminator': dialect.lineterminator
         }
@@ -336,8 +347,8 @@ def featrix_wrap_pd_read_csv(
                 # Pandas doesn't take the same dialect as csv.Sniffer produces so we create csv_parameters
                 # dialect=dialect,
                 on_bad_lines=on_bad_lines,
-                encoding_errors='ignore',
-                **csv_parameters
+                encoding_errors="ignore",
+                **csv_parameters,
             )
             if trace:
                 log_trace(f"{file_path}: loaded {len(df)} x {len(df.columns)}")
@@ -345,14 +356,16 @@ def featrix_wrap_pd_read_csv(
             cols = list(df.columns)
             if len(cols) <= 1:
                 if trace:
-                    log_trace(f"only got {len(cols)} ... trying without our sniffed parameters")
+                    log_trace(
+                        f"only got {len(cols)} ... trying without our sniffed parameters"
+                    )
                 # ok try it without the parameters.
                 df = pd.read_csv(
                     file_path or buffer_io,
                     # Pandas doesn't take the same dialect as csv.Sniffer produces so we create csv_parameters
                     # dialect=dialect,
                     on_bad_lines=on_bad_lines,
-                    encoding_errors='ignore',
+                    encoding_errors="ignore",
                 )
 
                 if trace:
@@ -367,14 +380,14 @@ def featrix_wrap_pd_read_csv(
                     # Pandas doesn't take the same dialect as csv.Sniffer produces so we create csv_parameters
                     # dialect=dialect,
                     on_bad_lines=on_bad_lines,
-                    encoding_errors='ignore',
+                    encoding_errors="ignore",
                 )
                 if trace:
                     log_trace(f"{file_path}: loaded {len(df)} x {len(df.columns)}")
-            except:
+            except:  # noqa
                 traceback.print_exc()
                 if trace:
-                    log_trace(f"tried again with no parameters and still had an error")
+                    log_trace("tried again with no parameters and still had an error")
 
         except csv.Error as err:
             bad_line = _find_bad_line_number(file_path=file_path, buffer=buffer)
@@ -388,9 +401,9 @@ def featrix_wrap_pd_read_csv(
 
             # FIXME: Not sure if there is something we can do if the buffer is hosed?
             if (
-                    s_err is not None
-                    and s_err.find("malformed") >= 0
-                    and file_path is not None
+                s_err is not None
+                and s_err.find("malformed") >= 0
+                and file_path is not None
             ):
                 df = pd.read_csv(
                     file_path,
@@ -398,7 +411,7 @@ def featrix_wrap_pd_read_csv(
                     # dialect=dialect,
                     on_bad_lines=on_bad_lines,
                     lineterminator="\n",
-                    **csv_parameters
+                    **csv_parameters,
                 )
                 if trace:
                     log_trace(f"{file_path}: loaded {len(df)} x {len(df.columns)}")
@@ -453,7 +466,7 @@ def featrix_wrap_pd_read_csv(
             return df
         except Exception as err:  # noqa - catch anything
             if trace:
-                log_trace(f"trying again with no parameters specified")
+                log_trace("trying again with no parameters specified")
 
             # OK, maybe the csv parameters are crap.
             df = pd.read_csv(file_path or buffer_io)

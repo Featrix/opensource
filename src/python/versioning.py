@@ -31,10 +31,11 @@
 from datetime import datetime
 from pathlib import Path
 
+
 def write_py_version(file, major, minor, iteration):
-    file.write(f"version = \"{major}.{minor}.{iteration}\"\n")
-    file.write(f"publish_time = \"{datetime.utcnow().isoformat()}\"\n")
-    file.write("__author__ = \"Featrix, Inc.\"\n")
+    file.write(f'version = "{major}.{minor}.{iteration}"\n')
+    file.write(f'publish_time = "{datetime.utcnow().isoformat()}"\n')
+    file.write('__author__ = "Featrix, Inc."\n')
 
 
 def increment_version():

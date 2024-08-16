@@ -93,12 +93,12 @@ class Upload(FeatrixBase):
     smart_enrichment_results: Optional[Dict] = None
     smart_enrichment_last_start_time: Optional[datetime] = None
     smart_enrichment_last_end_time: Optional[datetime] = None
-    #smart_enrichment_columns: Optional[List[str]] = None
+    # smart_enrichment_columns: Optional[List[str]] = None
 
     # We can have up to 3 files in an upload, where the user has pushed one file
     # and then we split things.
     test_split_ratio: float = 0.2
-    train_split_ratio: float = 0.6          # actual numbers will vary
+    train_split_ratio: float = 0.6  # actual numbers will vary
     validation_split_ratio: float = 0.2
 
     test_split_file_hash: Optional[str] = None

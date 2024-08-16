@@ -68,7 +68,7 @@ import pandas as pd
 
 from featrixclient.featrix_embedding_space import FeatrixEmbeddingSpace
 from featrixclient.featrix_job import FeatrixJob
-from featrixclient.models import TrainingState, ProjectType, JobType, PydanticObjectId
+from featrixclient.models import TrainingState, JobType, PydanticObjectId
 from .api import FeatrixApi
 from .exceptions import FeatrixException, FeatrixJobFailure
 from .featrix_neural_function import FeatrixNeuralFunction
@@ -174,7 +174,9 @@ class Featrix:
             self._store_project(project)
         return projects
 
-    def get_project_by_id(self, project_id: str | PydanticObjectId) -> FeatrixProject | None:
+    def get_project_by_id(
+        self, project_id: str | PydanticObjectId
+    ) -> FeatrixProject | None:
         """
         Find a project in the projects cache by its id (FeatrixProject.id)
 
@@ -186,8 +188,10 @@ class Featrix:
             self.projects()
             result = self._projects.get(str(project_id))
         return result
-     
-    def get_project_by_name(self, name: str) -> FeatrixProject | List[FeatrixProject] | None:
+
+    def get_project_by_name(
+        self, name: str
+    ) -> FeatrixProject | List[FeatrixProject] | None:
         """
         Find a project in the projects cache by its name (FeatrixProject.name)
 
@@ -251,7 +255,9 @@ class Featrix:
             self._library[upload.filename] = upload
             self._uploads[str(upload.id)] = upload
 
-    def get_upload(self, upload_id: str = None, filename: str = None, reload: bool = True) -> FeatrixUpload:
+    def get_upload(
+        self, upload_id: str = None, filename: str = None, reload: bool = True
+    ) -> FeatrixUpload:
         """
         Return the FeatrixUpload object (FeatrixUpload) for the given upload id or filename.
 
@@ -287,10 +293,10 @@ class Featrix:
                 raise FeatrixException(f"No such file {filename} in library")
 
     def upload_files(
-            self,
-            uploads: List[pd.DataFrame | str | Path] | pd.DataFrame | str | Path,
-            associate: Optional[FeatrixProject] = None,
-            labels: Optional[List[str | None]] = None,
+        self,
+        uploads: List[pd.DataFrame | str | Path] | pd.DataFrame | str | Path,
+        associate: Optional[FeatrixProject] = None,
+        labels: Optional[List[str | None]] = None,
     ) -> List[FeatrixUpload]:
         """
         Upload a list of files to the Featrix system and possibly associate them with a project.
@@ -310,20 +316,22 @@ class Featrix:
             List[FeatrixUpload] - the list of FeatrixUpload objects created
         """
         upload_objects = []
-        if type(uploads) != list:
+        if uploads is not list:
             uploads = [uploads]
 
         for idx, upload in enumerate(uploads):
             upload_objects.append(
-                self.upload_file(upload, associate=associate, label=labels[idx] if labels else None)
+                self.upload_file(
+                    upload, associate=associate, label=labels[idx] if labels else None
+                )
             )
         return upload_objects
 
     def upload_file(
-            self,
-            upload: pd.DataFrame | str | Path,
-            associate: Optional[FeatrixProject] = None,
-            label: Optional[str] = None,
+        self,
+        upload: pd.DataFrame | str | Path,
+        associate: Optional[FeatrixProject] = None,
+        label: Optional[str] = None,
     ) -> FeatrixUpload:
         """
         Create a new upload entry in your library using either a DataFrame or the filename/Path of a CSV
@@ -374,15 +382,11 @@ class Featrix:
                 project = associate.associate(upload)
                 self._store_project(project)
             else:
-                raise FeatrixException(
-                    "The associate needs to be a FeatrixProject"
-                )
+                raise FeatrixException("The associate needs to be a FeatrixProject")
         return upload
 
     def get_neural_function(
-            self,
-            neural_function_id,
-            in_project: Optional[FeatrixProject | str] = None
+        self, neural_function_id, in_project: Optional[FeatrixProject | str] = None
     ) -> FeatrixNeuralFunction:
         """
         Given a neural function id (and optionally, a project id), return the object that represents
@@ -428,13 +432,17 @@ class Featrix:
                 except RuntimeError:
                     # NF not found -- keep looking.
                     continue
-        
+
         if found_in_project:
-            raise ValueError(f"No neural function with id '{neural_function_id}' in project '{in_project}'")
-        
+            raise ValueError(
+                f"No neural function with id '{neural_function_id}' in project '{in_project}'"
+            )
+
         if not in_project:
             msg = f"{len(projects)} project{'s' if len(projects) != 1 else '' }"
-            raise ValueError(f"No neural function with id '{neural_function_id}' found in any project in '{msg}'")
+            raise ValueError(
+                f"No neural function with id '{neural_function_id}' found in any project in '{msg}'"
+            )
 
         raise ValueError(f"No neural function with id '{neural_function_id}'.")
 
@@ -444,16 +452,16 @@ class Featrix:
     """
 
     def create_embedding_space(
-            self,
-            project: Optional[FeatrixProject | str] = None,
-            name: Optional[str] = None,
-            credit_budget: int = 3,
-            files: Optional[List[pd.DataFrame | str | Path]] = None,
-            wait_for_completion: bool = False,
-            encoder: Optional[Dict] = None,
-            ignore_cols: Optional[List[str] | str] = None,
-            focus_cols: Optional[List[str] | str] = None,
-            **kwargs,
+        self,
+        project: Optional[FeatrixProject | str] = None,
+        name: Optional[str] = None,
+        credit_budget: int = 3,
+        files: Optional[List[pd.DataFrame | str | Path]] = None,
+        wait_for_completion: bool = False,
+        encoder: Optional[Dict] = None,
+        ignore_cols: Optional[List[str] | str] = None,
+        focus_cols: Optional[List[str] | str] = None,
+        **kwargs,
     ) -> "FeatrixEmbeddingSpace":  # noqa forward ref
         """
         Create a new embedding space in the project specified (FeatrixProject or
@@ -490,13 +498,17 @@ class Featrix:
         from .featrix_embedding_space import FeatrixEmbeddingSpace
         from bson import ObjectId
 
-        if project is None or (isinstance(project, str) and ObjectId.is_valid(project) is False):
+        if project is None or (
+            isinstance(project, str) and ObjectId.is_valid(project) is False
+        ):
             if files is None:
                 raise FeatrixException(
                     f"Can not create a project named {project} and train a "
                     f"neural function without data files"
                 )
-            project = FeatrixProject.new(self, project if isinstance(project, str) else f"Project {name}")
+            project = FeatrixProject.new(
+                self, project if isinstance(project, str) else f"Project {name}"
+            )
         elif isinstance(project, str):
             # We know it's a ObjectId from the above test
             if project not in self._projects:
@@ -513,7 +525,9 @@ class Featrix:
             project = self.get_project_by_id(project.id)
 
         if project.ready(wait_for_completion=upload_processing_wait) is False:
-            raise FeatrixException("Project not ready for training, datafiles still being processed")
+            raise FeatrixException(
+                "Project not ready for training, datafiles still being processed"
+            )
         es = FeatrixEmbeddingSpace.new_embedding_space(
             self,
             project,
@@ -523,14 +537,14 @@ class Featrix:
             ignore_cols=ignore_cols,
             focus_cols=focus_cols,
             wait_for_completion=wait_for_completion,
-            **kwargs
+            **kwargs,
         )
         return es
 
     def display_embedding_explorer(
-            self,
-            project: Optional[FeatrixProject | str],
-            embedding_space: FeatrixEmbeddingSpace = None
+        self,
+        project: Optional[FeatrixProject | str],
+        embedding_space: FeatrixEmbeddingSpace = None,
     ):
         """
         Not Implemented yet.
@@ -540,31 +554,37 @@ class Featrix:
             if len(project._embedding_spaces_cache) == 0:
                 project.embedding_spaces()
             if len(project._embedding_spaces_cache) == 0:
-                raise FeatrixException(f"Project {project.name} has no embedding space trained")
+                raise FeatrixException(
+                    f"Project {project.name} has no embedding space trained"
+                )
             if len(project._embedding_spaces_cache) > 1:
-                raise FeatrixException(f"Project {project.name} has multiple "
-                                       "embedding spaces, please specify which one")
+                raise FeatrixException(
+                    f"Project {project.name} has multiple "
+                    "embedding spaces, please specify which one"
+                )
             embedding_space = project._embedding_spaces_cache[
                 list(project._embedding_spaces_cache.keys())[0]
             ]
         if embedding_space.training_state != TrainingState.COMPLETED:
-            raise FeatrixException(f"Embedding space training state {embedding_space.training_state} is not COMPLETED")
-        explorer_data = embedding_space.get_explorer_data()
+            raise FeatrixException(
+                f"Embedding space training state {embedding_space.training_state} is not COMPLETED"
+            )
+        # explorer_data = embedding_space.get_explorer_data()
         # PLOT
         return
 
     def create_neural_function(
-            self,
-            target_fields: str | List[str],
-            project: Optional[FeatrixProject | str] = None,
-            credit_budget: int = 3,
-            files: Optional[List[pd.DataFrame | str | Path]] = None,
-            wait_for_completion: bool = False,
-            encoder: Optional[Dict] = None,
-            ignore_cols: Optional[List[str] | str] = None,
-            focus_cols: Optional[List[str] | str] = None,
-            embedding_space: Optional[FeatrixEmbeddingSpace | str] = None,
-            **kwargs,
+        self,
+        target_fields: str | List[str],
+        project: Optional[FeatrixProject | str] = None,
+        credit_budget: int = 3,
+        files: Optional[List[pd.DataFrame | str | Path]] = None,
+        wait_for_completion: bool = False,
+        encoder: Optional[Dict] = None,
+        ignore_cols: Optional[List[str] | str] = None,
+        focus_cols: Optional[List[str] | str] = None,
+        embedding_space: Optional[FeatrixEmbeddingSpace | str] = None,
+        **kwargs,
     ) -> FeatrixNeuralFunction:
         """
         Create a new neural function in the given project.  If a project is passed in (can be either a FeatrixProject
@@ -621,7 +641,10 @@ class Featrix:
             FeatrixNeuralFunction, -- the featrix model that was created
         """
         from bson import ObjectId
-        if project is None or (isinstance(project, str) and ObjectId.is_valid(project) is False):
+
+        if project is None or (
+            isinstance(project, str) and ObjectId.is_valid(project) is False
+        ):
             name = project if isinstance(project, str) else f"Project {target_fields}"
             project = FeatrixProject.new(self, name)
         elif isinstance(project, str):
@@ -636,7 +659,9 @@ class Featrix:
 
         project = self._projects[project.id]
         if project.ready(wait_for_completion=wait_for_completion) is False:
-            raise FeatrixException("Project not ready for training, datafiles still being processed")
+            raise FeatrixException(
+                "Project not ready for training, datafiles still being processed"
+            )
         project = project.refresh()
 
         nf = FeatrixNeuralFunction.new_neural_function(
@@ -648,7 +673,7 @@ class Featrix:
             ignore_cols,
             focus_cols,
             embedding_space=embedding_space,
-            **kwargs
+            **kwargs,
         )
         es = FeatrixEmbeddingSpace.by_id(nf.embedding_space_id, self)
         if wait_for_completion:
@@ -660,14 +685,17 @@ class Featrix:
         return nf.refresh()
 
     def create_explorer(
-            self,
-            project: Optional[FeatrixProject | str] = None,
-            credit_budget: int = 3,
-            files: Optional[List[pd.DataFrame | str | Path]] = None,
-            wait_for_model_jobs: bool = False,
-            wait_for_completion: bool = False,
-            **kwargs
-    ) -> Tuple[FeatrixEmbeddingSpace, FeatrixJob | List[FeatrixJob] | List[FeatrixNeuralFunction]]:
+        self,
+        project: Optional[FeatrixProject | str] = None,
+        credit_budget: int = 3,
+        files: Optional[List[pd.DataFrame | str | Path]] = None,
+        wait_for_model_jobs: bool = False,
+        wait_for_completion: bool = False,
+        **kwargs,
+    ) -> Tuple[
+        FeatrixEmbeddingSpace,
+        FeatrixJob | List[FeatrixJob] | List[FeatrixNeuralFunction],
+    ]:
         """
         Create a new data explorer in the project.  If a project is passed in with the project
         argument, and it is of the right type (ProjectType.EXPLORER) it will be used, but if it isn't an
@@ -723,12 +751,18 @@ class Featrix:
         if wait_for_completion:
             wait_for_model_jobs = True
 
-        if project is None or (isinstance(project, str) and ObjectId.is_valid(project) is False):
+        if project is None or (
+            isinstance(project, str) and ObjectId.is_valid(project) is False
+        ):
             if files is None:
                 raise FeatrixException(
                     "Can not create a project and train a neural function without data files"
                 )
-            name = project if isinstance(project, str) else f"Explorer project {uuid.uuid4()}"
+            name = (
+                project
+                if isinstance(project, str)
+                else f"Explorer project {uuid.uuid4()}"
+            )
             project = FeatrixProject.new(self, name)
         elif isinstance(project, str):
             if project not in self._projects:
@@ -742,7 +776,9 @@ class Featrix:
             project = self.get_project_by_id(project.id)
 
         if project.ready(wait_for_completion=wait_for_completion) is False:
-            raise FeatrixException("Project not ready for training, datafiles still being processed")
+            raise FeatrixException(
+                "Project not ready for training, datafiles still being processed"
+            )
 
         # The API will return the jobs that are in progress -- typically just the embedding space training
         # unless the embedding space is already trained, then it will return the list of model jobs (one
@@ -750,7 +786,7 @@ class Featrix:
         es, jobs = project.new_explorer(
             f"{project.name} Explorer",
             training_credits_budgeted=credit_budget,
-            **kwargs
+            **kwargs,
         )
         if es.training_state != TrainingState.COMPLETED:
             if wait_for_model_jobs is False:
@@ -761,14 +797,23 @@ class Featrix:
             # that kicks off the model creations)
             jobs[0].wait_for_completion("Embedding Space Training: ")
             es = es.by_id(es.id, self)
-            tj = jobs[1] if len(jobs) > 1 and jobs[1].job_type == JobType.JOB_TYPE_ES_WAIT_TO_TRAIN else None
-            jobs = es.explorer_training_jobs(wait_for_creation=True, wait_for_training_job=tj)
+            tj = (
+                jobs[1]
+                if len(jobs) > 1
+                and jobs[1].job_type == JobType.JOB_TYPE_ES_WAIT_TO_TRAIN
+                else None
+            )
+            jobs = es.explorer_training_jobs(
+                wait_for_creation=True, wait_for_training_job=tj
+            )
             # Note that we were waiting for the watcher to finish, so make sure there weren't updates to the ES
             es = es.by_id(str(es.id), self)
 
         # Now jobs will be the jobs of the model trainings and es will be the trained es if we get here
         if wait_for_completion:
-            FeatrixJob.wait_for_jobs(self, jobs, f"Explorer Model Training ({len(jobs)} jobs)")
+            FeatrixJob.wait_for_jobs(
+                self, jobs, f"Explorer Model Training ({len(jobs)} jobs)"
+            )
             models = es.neural_functions(force=True)
             return es, models
         return es, jobs
