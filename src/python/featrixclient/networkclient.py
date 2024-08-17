@@ -361,7 +361,7 @@ class Featrix:
             if label is None:
                 label = f"dataframe-import-{uuid.uuid4()}.csv"
             name = td / label
-            upload.to_csv(name)
+            upload.to_csv(name, index=None)
             upload = FeatrixUpload.new(self, name)
             try:
                 name.unlink()
