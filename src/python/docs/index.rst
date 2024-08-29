@@ -4,14 +4,15 @@ Welcome to Featrix!
 `Featrix <https://featrix.ai/>`_ is a data gateway to create ML models for structured data *with no data preparation
 on your part*. Featrix has both a modern user interface `hosted at app.featrix.com <https://app.featrix.com/>`_ and a Python client library
 that can easily be used in a notebook. Featrix can be used by developers, ML engineers, or data scientists to work with any
-structured data source, including Pandas dataframes, spreadsheets, databases, or CSV files. You can also mix unstructured and structured data.
+structured data source, including Pandas dataframes, spreadsheets, databases, or CSV files. You can also mix structured and unstructured data, e.g. Featrix handles plain text fields with no additional work.
 
 Getting started is easy and involves just a few steps:
 
 1. Load your baseline training data into a Featrix project.
-2. Train a "neural function" on that data. This transforms the original data into an embedding, and trains a prediction model using those embeddings.
-3. You can then run predictions using your neural function using our query engine.
-4. You can also train additional neural functions for different features/columns using the same set of embeddings.
+2. Wait for a Featrix foundation model to finish training on your data.
+2. Choose a target variable (either in the original file, or a separate file with labels), and train a Featrix "neural funtion" to compute predictions.
+3. Run predictions on queries (including those with only partial information) using your neural function.
+4. (optional) train additional neural functions for different features/columns using the same foundational model.
 
 A few notes on why we have picked these abstractions:
 
@@ -22,15 +23,13 @@ A few notes on why we have picked these abstractions:
 A Quick Example
 ---------------
 
+.. NOTE: do we know if easy_install works? It's been deprecated for almost 20 years now. I wasn't able to find explicit information about whether python3 is even supported.
 .. code-block:: python
     #
-    # Install the Featrix packet from a command shell with pip, conda, or easy_install
-    # depending on your environment:
+    # Install the Featrix packet from a command shell with pip or conda, depending on your environment:
     #     pip install featrixclient
     #     or
     #     conda install featrixclient
-    #     or
-    #     easy_install featrixclient
     # or use the "!" command in a Jupyter notebook cell:
     #     !pip install featrixclient
     #
@@ -60,14 +59,15 @@ A Quick Example
     print(prediction)
     # [{'revenue': 3255.10}]
 
-Models trained with Featrix can be used to classify data, to make a recommendation, or perform a regression on some data. The data can be new data not seen before by the embedding space; it can also include columns that are not present in the embedding space.
+Models trained with Featrix can be used to classify data, to make a recommendation, or perform regression. The queries can be new data not seen before by the embedding space; it can also include columns that are not present in the embedding space - although they won't be used to make the prediction, and will just be ignored.
 
 
 What can Featrix do?
 --------------------
-We have big goals for Featrix: we want to make working with Featrix the easiest AI system to build the best models with no configuration by developers without ML-specific skills, and we also want to provide enough power and knobs for experts who feels they need to tune things just right for their situation. 
+We have big goals for Featrix: we want to make Featrix the easiest way to build world-class predictive AI models for all developers, and we also want to provide enough power and knobs for experts who feels they need to tune things just right for their situation. 
 
-We believe vector-based computing is the future and everything we do in Featrix is powered by vector-based embeddings that represent the original data. We are building out exploratory data and specific applications
+We believe vector-based computing is the future and everything we do in Featrix is powered by vector-based embeddings that represent the original data. 
+..  (not sure we need this sentence) We are building out exploratory data and specific applications.
 
 
 Data Linking
