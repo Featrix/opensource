@@ -10,20 +10,19 @@ Getting started is easy and involves just a few steps:
 
 1. Load your baseline training data into a Featrix project.
 2. Wait for a Featrix foundation model to finish training on your data.
-2. Choose a target variable (either in the original file, or a separate file with labels), and train a Featrix "neural funtion" to compute predictions.
-3. Run predictions on queries (including those with only partial information) using your neural function.
-4. (optional) train additional neural functions for different features/columns using the same foundational model.
+3. Choose a target variable (either in the original file, or a separate file with labels), and train a Featrix "neural funtion" to compute predictions.
+4. Run predictions on queries (including those with only partial information) using your neural function.
+5. (optional) Train additional neural functions for different features/columns using the same foundational model.
 
 A few notes on why we have picked these abstractions:
 
 1. The project lets you mix and match source data into different configurations or arrangements without having to reload the data.
-2. Manually joining data is not required to associate data in the project; Featrix infers likely combinations to associate data and you can choose to override these if needed.
+2. Manually joining data is not required to associate data in the project.
 3. Featrix trains an embedding space using the project data sources.  These embeddings can be used to create neural functions - prediction models for different features in the data.
 
 A Quick Example
 ---------------
 
-.. NOTE: do we know if easy_install works? It's been deprecated for almost 20 years now. I wasn't able to find explicit information about whether python3 is even supported.
 .. code-block:: python
     #
     # Install the Featrix packet from a command shell with pip or conda, depending on your environment:
@@ -64,10 +63,13 @@ Models trained with Featrix can be used to classify data, to make a recommendati
 
 What can Featrix do?
 --------------------
-We have big goals for Featrix: we want to make Featrix the easiest way to build world-class predictive AI models for all developers, and we also want to provide enough power and knobs for experts who feels they need to tune things just right for their situation. 
+We want to make Featrix the easiest way to
+    1. explore a data set and uncover non-trivial relationships in it
+    2. build world-class predictive AI models for all developers
+
+We want Featrix to enable any developer of modest skill level to build AI applications for classification, regression, recommendation, and clustering. And we want Featrix to have enough power and knobs for even the most sophisticated teams.
 
 We believe vector-based computing is the future and everything we do in Featrix is powered by vector-based embeddings that represent the original data. 
-..  (not sure we need this sentence) We are building out exploratory data and specific applications.
 
 
 Data Linking
