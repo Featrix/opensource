@@ -1,7 +1,7 @@
 #  -*- coding: utf-8 -*-
 #############################################################################
 #
-#  Copyright (c) 2024, Featrix, Inc. All rights reserved.
+#  Copyright (c) 2024, Featrix, Inc.
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"), to deal
@@ -20,11 +20,35 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+#############################################################################
 #
+#     Welcome to...
+#
+#      _______ _______ _______ _______ ______ _______ ___ ___
+#     |    ___|    ___|   _   |_     _|   __ \_     _|   |   |
+#     |    ___|    ___|       | |   | |      <_|   |_|-     -|
+#     |___|   |_______|___|___| |___| |___|__|_______|___|___|
+#
+#                                                 Let's embed!
 #
 #############################################################################
 #
-#  Yes, you can see this file, but Featrix, Inc. retains all rights.
+#  Sign up for Featrix at https://app.featrix.com/
+# 
+#############################################################################
+#
+#  Check out the docs -- you can either call the python built-in help()
+#  or fire up your browser:
+#
+#     https://featrix-docs.readthedocs.io/en/latest/
+#
+#  You can also join our community Slack:
+#
+#     https://join.slack.com/t/featrixcommunity/shared_invite/zt-28b8x6e6o-OVh23Wc_LiCHQgdVeitoZg
+#
+#  We'd love to hear from you: bugs, features, questions -- send them along!
+#
+#     hello@featrix.ai
 #
 #############################################################################
 from __future__ import annotations
@@ -58,23 +82,15 @@ logger = logging.getLogger(__name__)
 
 class FeatrixProject(Project):
     """
-    This class represents a project in Featrix. A project provides organization for a users embedding spaces and
-    neural functions.  It allows the user to set default settings for the embedding space, as well as associate
-    data files to be used in training the embedding space.
+    Represents a project in Featrix, organizing embedding spaces and neural functions. A project allows setting default embedding space settings and associating data files for training.
 
-    Generally you can just use the project references you get back from various methods in the Featrix main
-    class (like create_project) but all the operations that are performed on a project at the Featrix level
-    are supported in this class by individual methods.
+    You can typically use project references returned by various Featrix methods (e.g., `create_project`). However, this class provides methods for all project-related operations.
 
-    If you have a project id, you can always get the project back with the by_id method, and if you have a project
-    reference that might be old, you can use project.refresh() to get back an updated version of the project.
+    Retrieve a project by ID with `by_id()`, and refresh an existing project reference with `.refresh()` to get the latest version.
 
-    The .ready() method will tell you whether the project is ready for creating/training models.  This really
-    is a proxy for whether any data files you have associated with the project have been processed by the
-    Featrix system (and are ready for inclusion in a training run).  If you pass wait_for_completion=True, it will
-    block (with messages) until all the data files are ready.
-
+    The `.ready()` method checks if the project is ready for model creation/training, indicating if associated data files have been processed. If `wait_for_completion=True`, it will block with status messages until all files are ready.
     """
+
 
     _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
@@ -115,16 +131,16 @@ class FeatrixProject(Project):
         tags: Optional[List[str]] = None,
     ):
         """
-        Load or create a project to work with.  If the project_id is passed, we look up an existing project,
-        otherwise we check if the named project already exists, and if it doesn't we create a new one.
+        Load or create a project. If `project_id` is provided, an existing project is retrieved. Otherwise, the project is looked up by name, and if it doesn't exist, a new one is created.
 
-        Arguments:
-            fc: Featrix client class
-            name: optional name of the project to look up or create by
-            project_type: ProjectType defaulting to SDK
-            user_meta: optional user meta if standing up a new project (or it will be added)
-            tags: optional list of tags to add to the project
+        Args:
+            fc (FeatrixClient): The Featrix client.
+            name (str | None): Optional name of the project to look up or create.
+            project_type (ProjectType): The type of project, defaulting to SDK.
+            user_meta (dict | None): Optional metadata for a new project.
+            tags (list | None): Optional list of tags to add to the project.
         """
+
         project = fc.api.op(
             "project_create",
             name=name,
@@ -223,45 +239,33 @@ class FeatrixProject(Project):
         **kwargs,
     ) -> Tuple["FeatrixEmbeddingSpace", FeatrixJob]:  # noqa forward ref
         """
-        Create a new embedding space in the project specified (FeatrixProject or
-        id of a project).
+        Create a new embedding space in a specified project.
 
-        You do not need to clean nulls or make the data numeric; simply pass in strings or missing values.
+        Data can include strings and missing values; no need for cleaning. If `wait_for_completion` is set to `True`, the process is synchronous with periodic status updates. The training will complete even if interrupted, and the status can be checked later.
 
-        If the wait_for_completion flag is set, this will be synchronous and print periodic messages to the console
-        as the embedding space is trained.  Note that the jobs are enqueued and running so if the notebook is
-        interrupted, reset or crashes, the training will still complete and can be queried by using the methods later.
+        This returns a tuple with the `FeatrixEmbeddingSpace` object and the `FeatrixJob` object responsible for the training. The `FeatrixEmbeddingSpace.training_state` shows the embedding space's state, while the `Job` provides detailed status information.
 
-        In either case this returns a tuple of the `FeatrixEmbeddingSpace` object and the `FeatrixJob` object that
-        created or is creating the job.  `FeatrixEmbeddingSpace.training_state` shows the state of the
-        embedding space, but the `Job` has detailed information about the current status.
+        Args:
+            project (FeatrixProject | str | None): The project to use; a new project is created if not provided.
+            name (str): Name of the embedding space.
+            credit_budget (int): Credit budget for training.
+            files (list | None): DataFrames or file paths to upload and associate with the project (optional).
+            wait_for_completion (bool): Run synchronously with status updates.
+            encoder (dict | None): Optional encoder overrides for the embedding space.
+            ignore_cols (list | str | None): Columns to ignore in training (list or comma-separated string).
+            focus_cols (list | str | None): Columns to focus on in training (list or comma-separated string).
+            **kwargs: Additional arguments for `ESCreateArgs`, e.g., `rows=1000`.
 
-        Arguments:
-            project: FeatrixProject or str id of the project to use; if none passed, we create the project
-            name: str -- name of embedding space
-            credit_budget(int): the default credit budget for the training
-            files: a list of dataframes or paths to files to upload and associate with the project
-                        (optional - if you already associated files with the project, this is redundant)
-            wait_for_completion(bool): make this synchronous, printing out status messages while waiting for the
-                                    training to complete
-            encoder: Optional dictionary of encoder overrides to use for the embedding space
-            ignore_cols: Optional list of columns to ignore in the training  (a string of comma separated
-                                                                            column names or a list of strings)
-            focus_cols: Optional list of columns to focus on in the training (a string of comma separated
-                                                                            column names or a list of strings)
-            **kwargs -- any other fields to ESCreateArgs() such -- can be called as to specify rows for instance):
-                              create_embedding_space(project, name, credits, files, wait_for_completion, rows=1000)
         Returns:
-            Tuple(FeatrixEmbeddingSpace, FeatrixJob) -- the featrix model and the jobs associated with training the model
-                         if wait_for_completion is True, the model returned will be fully trained, otherwise the
-                         caller will need ot check on the progress of the jobs and update the model when they are
-                         complete.
+            Tuple[FeatrixEmbeddingSpace, FeatrixJob]: The embedding space and associated training job.
         """
+
+
         from .featrix_embedding_space import FeatrixEmbeddingSpace
 
         if self.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException(
-                "Project not ready for training, datafiles still being processed"
+                "Project not ready for creating an embedding space, datafiles still being processed or not present."
             )
         es = FeatrixEmbeddingSpace.new_embedding_space(
             fc=self._fc,

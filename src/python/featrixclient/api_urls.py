@@ -1,7 +1,7 @@
 #  -*- coding: utf-8 -*-
 #############################################################################
 #
-#  Copyright (c) 2024, Featrix, Inc. All rights reserved.
+#  Copyright (c) 2024, Featrix, Inc.
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"), to deal
@@ -20,13 +20,38 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+#############################################################################
 #
+#     Welcome to...
+#
+#      _______ _______ _______ _______ ______ _______ ___ ___
+#     |    ___|    ___|   _   |_     _|   __ \_     _|   |   |
+#     |    ___|    ___|       | |   | |      <_|   |_|-     -|
+#     |___|   |_______|___|___| |___| |___|__|_______|___|___|
+#
+#                                                 Let's embed!
 #
 #############################################################################
 #
-#  Yes, you can see this file, but Featrix, Inc. retains all rights.
+#  Sign up for Featrix at https://app.featrix.com/
+# 
+#############################################################################
+#
+#  Check out the docs -- you can either call the python built-in help()
+#  or fire up your browser:
+#
+#     https://featrix-docs.readthedocs.io/en/latest/
+#
+#  You can also join our community Slack:
+#
+#     https://join.slack.com/t/featrixcommunity/shared_invite/zt-28b8x6e6o-OVh23Wc_LiCHQgdVeitoZg
+#
+#  We'd love to hear from you: bugs, features, questions -- send them along!
+#
+#     hello@featrix.ai
 #
 #############################################################################
+#
 from __future__ import annotations
 
 import warnings
@@ -90,37 +115,37 @@ class ApiInfo(BaseModel):
     model_config = ConfigDict(protected_namespaces=(), extra="allow")
 
     info_get: Api = Api("/info/", None, dict, False)
-    users_get_all: Api = Api("/mosaic/users/", None, UserBrief, True)
-    users_get_user: Api = Api("/mosaic/users/{email}", None, User, False)
-    users_get_self: Api = Api("/mosaic/users/me/", None, User, False)
-    users_post_current_org: Api = Api(
-        "/users/me/current_organization", str, None, False
-    )
-    org_get_all: Api = Api("/mosaic/organizations/", None, Organization, True)
-    org_get: Api = Api("/mosaic/organizations/{org_id}", None, Organization, False)
-    # FIXME: reqeust type
-    org_create: Api = Api("/mosaic/organizations/", str, Organization, False)
-    # FIXME: reqeust type
-    org_update: Api = Api("/mosaic/organizations/{org_id}", str, Organization, False)
-    org_members: Api = Api("/mosaic/organizations/members", None, UserBrief, True)
-    org_updates: Api = Api(
-        "/mosaic/organizations/updates", dict, UpdatedResponse, False
-    )
-    invite_create: Api = Api(
-        "/mosaic/invites/invite", InviteUserRequest, Invitation, False
-    )
-    invite_get_all: Api = Api("/mosaic/invites/", None, Invitation, True)
-    invite_get_is_invited: Api = Api("/mosaic/invites/{email}", None, Invitation, False)
-    apikey_get_all: Api = Api("/mosaic/keyauth/", None, ApiKeyEntry, True)
-    apikey_delete: Api = Api("/mosaic/keyauth/{label}", None, ApiKeyEntry, False)
-    apikey_create: Api = Api("/mosaic/keyauth/create", None, ApiKeyCreated, False)
-    apikey_create_jwt: Api = Api(
-        "/mosaic/keyauth/jwt", ApiKeyAuthenticationRequest, ApiKeyAuthResponse, False
-    )
-    activity_get_all: Api = Api("/mosaic/activity/", None, Activity, True)
-    activity_get_by_project: Api = Api(
-        "/mosaic/activity/project_id/{project_id}", None, Activity, True
-    )
+    # users_get_all: Api = Api("/mosaic/users/", None, UserBrief, True)
+    # users_get_user: Api = Api("/mosaic/users/{email}", None, User, False)
+    # users_get_self: Api = Api("/mosaic/users/me/", None, User, False)
+    # users_post_current_org: Api = Api(
+    #     "/users/me/current_organization", str, None, False
+    # )
+    # org_get_all: Api = Api("/mosaic/organizations/", None, Organization, True)
+    # org_get: Api = Api("/mosaic/organizations/{org_id}", None, Organization, False)
+    # # FIXME: reqeust type
+    # org_create: Api = Api("/mosaic/organizations/", str, Organization, False)
+    # # FIXME: reqeust type
+    # org_update: Api = Api("/mosaic/organizations/{org_id}", str, Organization, False)
+    # org_members: Api = Api("/mosaic/organizations/members", None, UserBrief, True)
+    # org_updates: Api = Api(
+    #     "/mosaic/organizations/updates", dict, UpdatedResponse, False
+    # )
+    # invite_create: Api = Api(
+    #     "/mosaic/invites/invite", InviteUserRequest, Invitation, False
+    # )
+    # invite_get_all: Api = Api("/mosaic/invites/", None, Invitation, True)
+    # invite_get_is_invited: Api = Api("/mosaic/invites/{email}", None, Invitation, False)
+    # apikey_get_all: Api = Api("/mosaic/keyauth/", None, ApiKeyEntry, True)
+    # apikey_delete: Api = Api("/mosaic/keyauth/{label}", None, ApiKeyEntry, False)
+    # apikey_create: Api = Api("/mosaic/keyauth/create", None, ApiKeyCreated, False)
+    # apikey_create_jwt: Api = Api(
+    #     "/mosaic/keyauth/jwt", ApiKeyAuthenticationRequest, ApiKeyAuthResponse, False
+    # )
+    # activity_get_all: Api = Api("/mosaic/activity/", None, Activity, True)
+    # activity_get_by_project: Api = Api(
+    #     "/mosaic/activity/project_id/{project_id}", None, Activity, True
+    # )
     public_data_get_file: Api = Api("/mosaic/publicdata/", None, FileResponse, False)
     project_get_all: Api = Api("/neural/project/", None, Project, True)
     project_get: Api = Api("/neural/project/{project_id}", None, Project, False)
@@ -211,9 +236,9 @@ class ApiInfo(BaseModel):
         EmbeddingSpaceDeleteResponse,
         False,
     )
-    es_get_explorer: Api = Api(
-        "/neural/embedding_space/{embedding_space_id}/explorer", None, dict, False
-    )
+    # es_get_explorer: Api = Api(
+    #     "/neural/embedding_space/{embedding_space_id}/explorer", None, dict, False
+    # )
     feeds_get: Api = Api("/neural/feeds/", None, FeedWithEventCounts, True)
     feeds_get_create_feed: Api = Api(
         "/neural/feeds/create", FeedCreateArgs, Feed, False
@@ -241,33 +266,33 @@ class ApiInfo(BaseModel):
     job_model_guardrails: Api = Api(
         "/neural/embedding_space/check-guardrails", GuardRailsArgs, JobDispatch, False
     )
-    job_encode_records: Api = Api(
-        "/neural/embedding_space/run-encode-records",
-        EncodeRecordsArgs,
-        list,
-        True,
-    )
+    # job_encode_records: Api = Api(
+    #     "/neural/embedding_space/run-encode-records",
+    #     EncodeRecordsArgs,
+    #     list,
+    #     True,
+    # )
     job_fast_encode_records: Api = Api(
         "/neural/embedding_space/fast-encode-records",
         EncodeRecordsArgs,
         JobDispatch,
         False,  # this only matters if the response type is a Model (pydantic) - here we just get a list of dicts
     )
-    job_es_create_db: Api = Api(
-        "/neural/embedding_space/create-database", CreateDBArgs, JobDispatch, False
-    )
-    job_db_cluster: Api = Api(
-        "/neural/embedding_space/run-db-cluster", DBClusterArgs, JobDispatch, False
-    )
-    job_db_nn_query: Api = Api(
-        "/neural/embedding_space/nn-query", NNQueryArgs, JobDispatch, False
-    )
+    # job_es_create_db: Api = Api(
+    #     "/neural/embedding_space/create-database", CreateDBArgs, JobDispatch, False
+    # )
+    # job_db_cluster: Api = Api(
+    #     "/neural/embedding_space/run-db-cluster", DBClusterArgs, JobDispatch, False
+    # )
+    # job_db_nn_query: Api = Api(
+    #     "/neural/embedding_space/nn-query", NNQueryArgs, JobDispatch, False
+    # )
     job_chained_new_neural_function: Api = Api(
         "/neural/project/new-neural-function", NewNeuralFunctionArgs, JobDispatch, True
     )
-    job_chained_new_explorer: Api = Api(
-        "/neural/project/new-explorer", NewExplorerArgs, JobDispatch, True
-    )
+    # job_chained_new_explorer: Api = Api(
+    #     "/neural/project/new-explorer", NewExplorerArgs, JobDispatch, True
+    # )
     jobs_get: Api = Api("/neural/job/{job_id}", None, JobResults, False)
 
     @staticmethod

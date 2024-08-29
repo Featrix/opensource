@@ -1,7 +1,7 @@
 #  -*- coding: utf-8 -*-
 #############################################################################
 #
-#  Copyright (c) 2024, Featrix, Inc. All rights reserved.
+#  Copyright (c) 2024, Featrix, Inc.
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"), to deal
@@ -20,13 +20,38 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+#############################################################################
 #
+#     Welcome to...
+#
+#      _______ _______ _______ _______ ______ _______ ___ ___
+#     |    ___|    ___|   _   |_     _|   __ \_     _|   |   |
+#     |    ___|    ___|       | |   | |      <_|   |_|-     -|
+#     |___|   |_______|___|___| |___| |___|__|_______|___|___|
+#
+#                                                 Let's embed!
 #
 #############################################################################
 #
-#  Yes, you can see this file, but Featrix, Inc. retains all rights.
+#  Sign up for Featrix at https://app.featrix.com/
+# 
+#############################################################################
+#
+#  Check out the docs -- you can either call the python built-in help()
+#  or fire up your browser:
+#
+#     https://featrix-docs.readthedocs.io/en/latest/
+#
+#  You can also join our community Slack:
+#
+#     https://join.slack.com/t/featrixcommunity/shared_invite/zt-28b8x6e6o-OVh23Wc_LiCHQgdVeitoZg
+#
+#  We'd love to hear from you: bugs, features, questions -- send them along!
+#
+#     hello@featrix.ai
 #
 #############################################################################
+#
 from __future__ import annotations
 
 from datetime import datetime
@@ -54,16 +79,12 @@ from .models import PydanticObjectId
 
 class FeatrixNeuralFunction(Model):
     """
-    Represents a predictive model, also known as a neural function.  It is a model trained against an embedding space
-    to provide prediction for a given feature/field.
+    Represents a neural function (predictive model) trained against an embedding space for predicting a specific feature or field.
 
-    A new neural function can be created and trained by using the .new_neural_function() method.  If you have the ID
-    of a neural function model, you can look it up with the .by_id() method, or make sure you have the most recent
-    version of the object with the .refresh() method:
-            nf = FeatrixNeuralFunction.by_id("5f7b1b1b1b1b1b1b1b1b1b1b")
-            // if, for instance, the model wasn't trained when you called by_id, you can use refresh to update it
-            // when the training is over:
-            nf = nf.refresh()
+    Create and train a new neural function with `.new_neural_function()`. Retrieve an existing neural function by its ID with `.by_id()`, and ensure you have the latest version of the model using `.refresh()`:
+
+        nf = FeatrixNeuralFunction.by_id("5f7b1b1b1b1b1b1b1b1b1b")
+        nf = nf.refresh()  # Update after training completes
 
     """
 
@@ -152,23 +173,22 @@ class FeatrixNeuralFunction(Model):
         **kwargs,
     ) -> "FeatrixNeuralFunction":
         """
-        This creates a chained-job to do training first on an embedding space, and then on the predictive model
-        within that embedding space.  It returns the FeatrixNeuralFunction that we created.  The embedding space and
-        training jobs can be retrieved from that using the embedding_space_id and .get_jobs() method respectively.
+        Create a chained job to first train an embedding space, then the predictive model within that space. Returns the created `FeatrixNeuralFunction`. Use `embedding_space_id` and `.get_jobs()` to retrieve the embedding space and training jobs.
 
-        Arguments:
-            fc: the feature client object for submitting API requests
-            target_field: The field that we are trying to predict
-            credit_budget: The number of credits to budget for training
-            embedding_space: The embedding space to use for training
-            encoder: Optional encoder overrides to use for training the embedding space
-            ignore_cols: Optional columns to ignore during training
-            focus_cols: Optional columns to focus on during training
-            kwargs: Additional arguments to pass to the create embedding or train model functions
+        Args:
+            fc (FeatureClient): The feature client object for API requests.
+            target_field (str): The field to predict.
+            credit_budget (int): Credits allocated for training.
+            embedding_space (EmbeddingSpace): The embedding space to use for training.
+            encoder (dict | None): Optional encoder overrides for training.
+            ignore_cols (list | str | None): Columns to ignore during training.
+            focus_cols (list | str | None): Columns to focus on during training.
+            kwargs (dict): Additional arguments for embedding creation or model training.
 
         Returns:
-            FeatrixNeuralFunction: The model that was created
+            FeatrixNeuralFunction: The created predictive model.
         """
+
         from .featrix_job import FeatrixJob
         from .featrix_project import FeatrixProject
         from .featrix_embedding_space import FeatrixEmbeddingSpace
@@ -213,16 +233,18 @@ class FeatrixNeuralFunction(Model):
 
     def get_jobs(self, active: bool = True, training: bool = True) -> List[FeatrixJob]:
         """
-        Return a list of jobs that are associated with this model.  By default it will only
-        return active (not finished) training jobs, but the caller can use the two arguments to control this.
+        Return a list of jobs associated with this model.
 
-        Arguments:
-            active: bool: If True, only return active jobs
-            training: bool: If True, only return training jobs
+        By default, only active (unfinished) training jobs are returned. Use the arguments to filter results.
+
+        Args:
+            active (bool): If `True`, return only active jobs.
+            training (bool): If `True`, return only training jobs.
 
         Returns:
-            List[FeatrixJob]: The list of jobs associated with this model
+            List[FeatrixJob]: The list of jobs associated with this model.
         """
+
         jobs = []
         for job in FeatrixJob.by_neural_function(self):
             if active or training:
@@ -263,56 +285,3 @@ class FeatrixNeuralFunction(Model):
                 f"Query {fp.debug_info.get('prediction_time', -1)}"
             )
         return fp.result
-
-    def predictions(
-        self, stale_timeout: int = settings.stale_timeout
-    ) -> List[FeatrixPrediction]:
-        """
-        Retrieve historical predictions.
-
-        Arguments:
-            stale_timeout: int: The number of seconds to wait before refreshing the cache
-
-        Returns:
-            List[FeatrixPrediction]: The list of predictions for this model
-        """
-        from .featrix_predictions import FeatrixPrediction
-
-        if (
-            self._predictions_cache_updated is None
-            or (datetime.utcnow() - self._predictions_cache_updated) > stale_timeout
-        ):
-            since = self._predictions_cache_updated
-            self._predictions_cache_updated = datetime.utcnow()
-            results = self._fc.api.op(
-                "models_get_predictions", model_id=str(self.id), since=since
-            )
-            prediction_list = ApiInfo.reclass(FeatrixPrediction, results, fc=self._fc)
-            for prediction in prediction_list:
-                self._predictions_cache[str(prediction.id)] = prediction
-        return list(self._predictions_cache.values())
-
-    def prediction(
-        self, prediction_id: str, stale_timeout: int = settings.stale_timeout
-    ) -> FeatrixPrediction:
-        """
-        Get a prediction by its id from the cache.
-        """
-        if prediction_id not in self._predictions_cache:
-            self.predictions(stale_timeout=stale_timeout)
-        if prediction_id in self._predictions_cache:
-            return self._predictions_cache[prediction_id]
-        raise RuntimeError(
-            f"Prediction {prediction_id} not found in Neural Function {self.id}"
-        )
-
-    def find_prediction(self, **kwargs) -> Tuple[FeatrixPrediction, Dict]:
-        """
-        Given a set of column to value's that make up a query, look to see if that query is contained in
-        any of our predictions -- and if so, return it. Otherwise, return None.
-        """
-        for prediction in self._predictions_cache.values():
-            match, idx = prediction.match(**kwargs)
-            if match:
-                return prediction, prediction.result[idx]
-        raise FeatrixException("No prediction found for query")

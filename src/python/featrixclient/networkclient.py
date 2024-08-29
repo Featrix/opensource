@@ -20,12 +20,6 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
-#
-#
-#############################################################################
-#
-#  Yes, you can see this file, but Featrix, Inc. retains all rights.
-#
 #############################################################################
 #
 #     Welcome to...
@@ -37,6 +31,10 @@
 #
 #                                                 Let's embed!
 #
+#############################################################################
+#
+#  Sign up for Featrix at https://app.featrix.com/
+# 
 #############################################################################
 #
 #  Check out the docs -- you can either call the python built-in help()
@@ -105,34 +103,26 @@ class Featrix:
         """
         Create a Featrix client object.
 
-        The caller has to provide authentication credentials. These are API Keys, generated in the Featrix UI, found at
-        https://app.featrix.com.  An API Key will consist of a client id and a client secret.  Both are needed to
-        use this interface.  The credentials can be provided to this interface three different ways (only one is
-        required!):
-        1) The client_id/client_secret arguments
-        2) Having the client id and secret set in the environment variables FEATRIX_CLIENT_ID and
-        FEATRIX_CLIENT_SECRET, typically put in the users .zshrc/.bashrc or Windows environment.
-        3) Having the client id and secret set in the file ${HOME}/.featrix.key (or a file specified by
-        the key_file argument below).  The format of this file is the same as the environment, two lines
-        that contain:
+        This requires authentication using API Keys (client ID and secret) from the Featrix UI at https://app.featrix.com. The credentials can be provided in one of three ways:
 
-           FEATRIX_CLIENT_ID=xxxxxxxxxx
-           FEATRIX_CLIENT_SECRET=xxxxxxxxxx
+        1) As `client_id` and `client_secret` arguments.
+        2) Set in the environment variables `FEATRIX_CLIENT_ID` and `FEATRIX_CLIENT_SECRET`.
+        3) Stored in `${HOME}/.featrix.key` (or a specified file via `key_file`), with the format:
 
-        To generate an API Key, register an account at https://app.featirx.com, and once logged in, under
-        your Profile menu in the top right corner, select ``Manage API Keys``.
+        FEATRIX_CLIENT_ID=xxxxxxxxxx
+        FEATRIX_CLIENT_SECRET=xxxxxxxxxx
+
+        To generate an API Key, register and log in at https://app.featrix.com/. Under your Profile menu, select "Manage API Keys."
 
         Args:
-            url(str): The url of the Featrix server you are using. The default is https://app.featrix.com
-            client_id (str | None): the client id of the API Key to use for authentication
-            client_secret (str | None): The client secret of the API Key to use for authentication
-            key_file (str | Path | None): Alternate filename of a file containing your API Key credentials
-            allow_unencrypted_http (bool): Allow connection to a non-https (unencrypted) address (used for development)
+            url (str): URL of the Featrix server (default: https://app.featrix.com/).
+            client_id (str | None): API Key client ID.
+            client_secret (str | None): API Key client secret.
+            key_file (str | Path | None): File containing API Key credentials.
+            allow_unencrypted_http (bool): Allow non-HTTPS connections (for development).
 
-        Returns
-        -------
-        A Featrix object ready to access/create your neural functions and preform predictive AI queries against
-        those models.
+        Returns:
+            A Featrix object for accessing neural functions and performing predictive AI queries.
         """
         self._projects = {}
         # by name and by id ?
@@ -159,13 +149,12 @@ class Featrix:
 
     def projects(self) -> List[FeatrixProject]:
         """
-        Return all the projects in your account as a list.  Each project has a name and a list of associated
-        data sets (associated_uploads) that are part of that project.  If there are mappings that exist
-        between multiple data sets, they will also be listed in the mappings field.  Additionally, if there are
-        columns in these data sets that are being ignored by this project, they will be in ignore_cols.
+        Return a list of all projects in your account.
+
+        Each project includes its name, associated data sets (`associated_uploads`), any mappings between data sets (`mappings`), and columns ignored by the project (`ignore_cols`).
 
         Returns:
-            List[FeatrixProject] -- A list of projects.
+            List[FeatrixProject]: A list of projects.
         """
         projects = FeatrixProject.all(self)
         for project in projects:
@@ -217,38 +206,35 @@ class Featrix:
         tags: Optional[List[str]] = None,
     ) -> FeatrixProject:
         """
-        Create a new project and make it the current project using the name provided. It creates the project
-        and sets the current project of the Featrix class to that project.
+        Create a new project and set it as the current project.
 
-        Arguments:
-            name:  Optional name of the project, otherwise it will be auto-named
-            user_meta: Optional dictionary of user metadata to associate with the project
-            tags: Optional list of tags to associate with the project
+        Args:
+            name (str | None): Optional project name; auto-named if not provided.
+            user_meta (dict | None): Optional metadata to associate with the project.
+            tags (list | None): Optional tags to associate with the project.
 
         Returns:
-            FeatrixProject - the new project object created
-
+            FeatrixProject: The newly created project object.
         """
         project = FeatrixProject.new(self, name, user_meta=user_meta, tags=tags)
         self._store_project(project)
         return project
 
-    def drop_project(self, project: FeatrixProject | str) -> None:
-        """
-        Drop a project from the cache of projects.  This will not delete the project from the Featrix system,
-        just remove it from the cache of projects in the Featrix object.
+    # def drop_project(self, project: FeatrixProject | str) -> None:
+    #     """
+    #     Drop a project from the cache of projects.  This will not delete the project from the Featrix system,
+    #     just remove it from the cache of projects in the Featrix object.
 
-        Args:
-            project: The project object or the id of the project to drop from the cache
-        """
-        project_id = str(project.id) if isinstance(project, FeatrixProject) else project
-        if project_id in self._projects:
-            del self._projects[project_id]
+    #     Args:
+    #         project: The project object or the id of the project to drop from the cache
+    #     """
+    #     project_id = str(project.id) if isinstance(project, FeatrixProject) else project
+    #     if project_id in self._projects:
+    #         del self._projects[project_id]
 
     def get_uploads(self) -> None:
         """
         Get all the FeatrixUpload entries that describe files the user has uploaded to the Featrix system.
-        These are stored in the Featrix cache, and can be retrieved by the `get_upload` method.
         """
         uploads = FeatrixUpload.all(self)
         for upload in uploads:
@@ -299,21 +285,16 @@ class Featrix:
         labels: Optional[List[str | None]] = None,
     ) -> List[FeatrixUpload]:
         """
-        Upload a list of files to the Featrix system and possibly associate them with a project.
-        The uploads list can be a list of filenames (by string or `pathlib.Path`) or `pandas.DataFrame objects`,
-        or both.  If the `labels` list is not provided, the filenames will be used as the labels for the uploads,
-        or an auto-generated label will be used for the DataFrame uploads.
+        Upload files or DataFrames to the Featrix system, optionally associating them with a project.
 
-        If the user passes in a project to associate, we do that as well. .
-
-        Arguments:
-            uploads: List of filenames or DataFrames to upload
-            associate: a FeatrixProject to associate with
-            labels: Optional list of labels to use for the uploads, if not provided, the filenames will be used for the
+        Args:
+            uploads (list): List of filenames (str or `pathlib.Path`) or `pandas.DataFrame` objects to upload.
+            associate (FeatrixProject | None): Optional project to associate with the uploads.
+            labels (list | None): Optional labels for the uploads; defaults to filenames or auto-generated labels for DataFrames.
             upload: If `uploads` is not used, takes a single upload.
 
         Returns:
-            List[FeatrixUpload] - the list of FeatrixUpload objects created
+            List[FeatrixUpload]: The list of created FeatrixUpload objects.
         """
         upload_objects = []
         if uploads is not list:
@@ -334,24 +315,19 @@ class Featrix:
         label: Optional[str] = None,
     ) -> FeatrixUpload:
         """
-        Create a new upload entry in your library using either a DataFrame or the filename/Path of a CSV
-        file from which to source.  It will create a new FeatrixUpload in your library, push the data from the
-        DataFrame or filename to the Featrix system, and start a job that will do some post upload analysis of the
-        file (typically finished in under 60 seconds).
+        Create a new upload in your library from a DataFrame or CSV file.
 
-        The Upload will be added to your library and accessible via the get_upload call.
+        This creates a `FeatrixUpload` in your library, uploads the data to Featrix, and starts a post-upload analysis (typically completed within 60 seconds). The upload will be accessible via `get_upload`.
 
-        Additionally, If the associate argument is set to True, this upload will be associated with the current
-        project.  If the associate argument is set to a FeatrixProject, it will be associated with the given project.
+        If `associate` is `True`, the upload is associated with the current project. If `associate` is a `FeatrixProject`, it will be associated with that specific project.
 
         Args:
-            upload: (pd.DataFrame | str | Path): The data file to add to your library, referenced by a pandas DataFrame
-                    or the filename (str or Path) of the CSV file to use
-            associate: FeatrixProject: associate this upload with FeatrixProject
-            label: Optional - use as filename if passed in a dataframe
+            upload (pd.DataFrame | str | Path): The data to upload, either as a DataFrame or a CSV file path.
+            associate (FeatrixProject | bool | None): Optionally associate the upload with a project.
+            label (str | None): Optional label for the upload; used as filename if provided with a DataFrame.
 
         Returns:
-            FeatrixUpload: The upload object that is created.
+            FeatrixUpload: The created upload object.
         """
         if isinstance(upload, pd.DataFrame):
             import tempfile
@@ -389,16 +365,14 @@ class Featrix:
         self, neural_function_id, in_project: Optional[FeatrixProject | str] = None
     ) -> FeatrixNeuralFunction:
         """
-        Given a neural function id (and optionally, a project id), return the object that represents
-        that neural function. You can then run predictions on that neural function.
+        Retrieve a neural function object by its ID, optionally within a specific project.
 
-        Arguments:
-            neural_function_id: The id of the neural function to find
-            project: Optional project to use, otherwise we walk the projects.
+        Args:
+            neural_function_id (str): The ID of the neural function to retrieve.
+            project (FeatrixProject | None): Optional project to search within; otherwise, all projects are searched.
 
         Returns:
-            FeatrixNeuralFunction: The model object found
-
+            FeatrixNeuralFunction: The retrieved neural function object.
         """
         projects = []
         if not in_project:
@@ -464,36 +438,23 @@ class Featrix:
         **kwargs,
     ) -> "FeatrixEmbeddingSpace":  # noqa forward ref
         """
-        Create a new embedding space in the project specified (FeatrixProject or
-        id of a project).
+        Create a new embedding space within a specified project.
 
-        You do not need to clean nulls or make the data numeric; simply pass in strings or missing values.
+        You can pass in strings or missing values without cleaning the data. If `wait_for_completion` is `True`, the process will be synchronous, with periodic status messages. Even if interrupted, the training will complete and can be queried later.
 
-        If the wait_for_completion flag is set, this will be synchronous and print periodic messages to the console
-        as the embedding space is trained.  Note that the jobs are enqueued and running so if the notebook is
-        interrupted, reset or crashes, the training will still complete and can be queried by using the methods later.
+        Args:
+            project (FeatrixProject | str | None): The project to use (ID or object); a new project is created if not provided.
+            name (str): The name of the embedding space.
+            credit_budget (int): The credit budget for training.
+            files (list | None): Optional list of DataFrames or file paths to upload and associate with the project.
+            wait_for_completion (bool): If `True`, runs synchronously, printing status messages during training.
+            encoder (dict | None): Optional dictionary of encoder overrides.
+            ignore_cols (list | str | None): Optional columns to ignore during training (list or comma-separated string).
+            focus_cols (list | str | None): Optional columns to focus on during training (list or comma-separated string).
+            **kwargs: Additional arguments for `ESCreateArgs`, e.g., `rows=1000`.
 
-        In either case this returns the `FeatrixEmbeddingSpace` object. If the flag wait_for_completion was not
-        set (or False), there will be a job running the training, and the caller can get that by calling the
-        .get_jobs() method on the returned embedding space.
-
-        Arguments:
-            project: FeatrixProject or str id of the project to use; if none passed, we create the project
-            name: str -- name of embedding space
-            credit_budget(int): the default credit budget for the training
-            files: a list of dataframes or paths to files to upload and associate with the project
-                        (optional - if you already associated files with the project, this is redundant)
-            wait_for_completion(bool): make this synchronous, printing out status messages while waiting for the
-                                    training to complete
-            encoder: Optional dictionary of encoder overrides to use for the embedding space
-            ignore_cols: Optional list of columns to ignore in the training  (a string of comma separated
-                                                                            column names or a list of strings)
-            focus_cols: Optional list of columns to focus on in the training (a string of comma separated
-                                                                            column names or a list of strings)
-            **kwargs -- any other fields to ESCreateArgs() such -- can be called as to specify rows for instance):
-                              create_embedding_space(project, name, credits, files, wait_for_completion, rows=1000)
         Returns:
-            FeatrixEmbeddingSpace -- the featrix model object created
+            FeatrixEmbeddingSpace: The created embedding space object.
         """
         from .featrix_embedding_space import FeatrixEmbeddingSpace
         from bson import ObjectId
@@ -503,8 +464,7 @@ class Featrix:
         ):
             if files is None:
                 raise FeatrixException(
-                    f"Can not create a project named {project} and train a "
-                    f"neural function without data files"
+                    f"Can not create a project named {project} and train a neural function without data files"
                 )
             project = FeatrixProject.new(
                 self, project if isinstance(project, str) else f"Project {name}"
@@ -541,38 +501,6 @@ class Featrix:
         )
         return es
 
-    def display_embedding_explorer(
-        self,
-        project: Optional[FeatrixProject | str],
-        embedding_space: FeatrixEmbeddingSpace = None,
-    ):
-        """
-        Not Implemented yet.
-
-        """
-        if embedding_space is None:
-            if len(project._embedding_spaces_cache) == 0:
-                project.embedding_spaces()
-            if len(project._embedding_spaces_cache) == 0:
-                raise FeatrixException(
-                    f"Project {project.name} has no embedding space trained"
-                )
-            if len(project._embedding_spaces_cache) > 1:
-                raise FeatrixException(
-                    f"Project {project.name} has multiple "
-                    "embedding spaces, please specify which one"
-                )
-            embedding_space = project._embedding_spaces_cache[
-                list(project._embedding_spaces_cache.keys())[0]
-            ]
-        if embedding_space.training_state != TrainingState.COMPLETED:
-            raise FeatrixException(
-                f"Embedding space training state {embedding_space.training_state} is not COMPLETED"
-            )
-        # explorer_data = embedding_space.get_explorer_data()
-        # PLOT
-        return
-
     def create_neural_function(
         self,
         target_fields: str | List[str],
@@ -587,58 +515,27 @@ class Featrix:
         **kwargs,
     ) -> FeatrixNeuralFunction:
         """
-        Create a new neural function in the given project.  If a project is passed in (can be either a FeatrixProject
-        or the id of a project), we use that.  If the project is a string and not an id, we will assume it's a name
-        and create a new project (if it's none, we will create a name for the project using target_fields).
+        Create a new neural function within a specified project.
 
-        If an embedding space is already trained or being trained in the project, we will use that embedding space
-        to train the neural function model, otherwise we will first train an embedding space on the data files included
-        in the project.  If a list of datasets are passed into this function, we will first upload and associate
-        those files with the project being used.
+        If a project (ID or `FeatrixProject`) is provided, it will be used. If it's a string and not an ID, a new project will be created with that name (or a name derived from `target_fields` if none is provided).
 
-        If the wait_for_completion flag is set, this will be synchronous and
-        print periodic messages to the console or notebook cell.  Note that the jobs are enqueued and running
-        so if the notebook is interrupted, reset or crashes, the training will still complete and can be queried
-        by using the methods get_neural_function or neural_functions.
+        If an embedding space exists or is being trained in the project, it will be used to train the neural function. Otherwise, an embedding space will first be trained. If datasets are provided, they will be uploaded and associated with the project.
 
-        In either case, this will return the FeatrixNeuralFunction object that was created. If the the
-        wait_for_completion flag is not set (or False), there will be 1-2 jobs that are running the training: one
-        for the embedding space if it wasn't already trained, and the second for the neural function model.  They will
-        be running sequentially, since the neural function is trained against the embedding space.  They can be
-        retrieved by using the .get_jobs() method on the returned object.
+        If `wait_for_completion` is `True`, the process will be synchronous, with status updates. The training jobs will complete even if interrupted and can be queried later. The method returns the created `FeatrixNeuralFunction`. If not waiting for completion, training jobs can be monitored via `.get_jobs()`.
 
-        The caller, in the case where they do not wait for completion, can follow the progress via the jobs objects
-
-        .. code-block:: python
-
-           model = create_neural_function("field_name")
-           training_jobs = model.get_jobs()
-           for job in training_jobs:
-               job = job.check()
-               print(f"{job.job_type}: {job.incremental_status.message}")
-               job.wait_for_completion(f"{job.id}: Training: ")
-
-        They can also just wait on the neural function model's field training_state to be set to
-        TrainingState.COMPLETED ("trained")
-
-        Arguments:
-            target_fields: the field name(s) to target in the prediction
-            project: FeatrixProject or str id of the project to use or the name for a new project
-            credit_budget(int): the default credit budget for the training
-            files: a list of dataframes or paths to files to upload and associate with the project
-                        (optional - if you already associated files with the project, this is redundant)
-            wait_for_completion(bool): make this synchronous, printing out status messages while waiting for the
-                                    training to complete
-            encoder: Optional dictionary of encoder overrides to use for the embedding space
-            ignore_cols: Optional list of columns to ignore in the training  (a string of comma separated
-                                                                            column names or a list of strings)
-            focus_cols: Optional list of columns to focus on in the training (a string of comma separated
-                                                                            column names or a list of strings)
-            **kwargs -- any other fields to ESCreateArgs() such -- can be called as to specify rows for instance):
-                              create_embedding_space(project, name, credits, files, wait_for_completion, rows=1000)
+        Args:
+            target_fields (str | list): Field name(s) to target in predictions.
+            project (FeatrixProject | str | None): Project to use, or name for a new project.
+            credit_budget (int): Credit budget for training.
+            files (list | None): DataFrames or file paths to upload and associate with the project (optional).
+            wait_for_completion (bool): Run synchronously with status updates.
+            encoder (dict | None): Optional encoder overrides for the embedding space.
+            ignore_cols (list | str | None): Columns to ignore in training (list or comma-separated string).
+            focus_cols (list | str | None): Columns to focus on in training (list or comma-separated string).
+            **kwargs: Additional arguments for `ESCreateArgs`, e.g., `rows=1000`.
 
         Returns:
-            FeatrixNeuralFunction, -- the featrix model that was created
+            FeatrixNeuralFunction: The created neural function model.
         """
         from bson import ObjectId
 
@@ -684,139 +581,6 @@ class Featrix:
                     raise FeatrixJobFailure(job)
         return nf.refresh()
 
-    def create_explorer(
-        self,
-        project: Optional[FeatrixProject | str] = None,
-        credit_budget: int = 3,
-        files: Optional[List[pd.DataFrame | str | Path]] = None,
-        wait_for_model_jobs: bool = False,
-        wait_for_completion: bool = False,
-        **kwargs,
-    ) -> Tuple[
-        FeatrixEmbeddingSpace,
-        FeatrixJob | List[FeatrixJob] | List[FeatrixNeuralFunction],
-    ]:
-        """
-        Create a new data explorer in the project.  If a project is passed in with the project
-        argument, and it is of the right type (ProjectType.EXPLORER) it will be used, but if it isn't an
-        explorer project, the function will raise an error.
-
-        If the project field is a string, it can be an id of a project or it can be a name which we will use
-        to create a new project.  If there is no project passed in, we will create one and generate a name.
-
-        If an embedding space is already trained or being trained in the project, we will use that embedding space
-        for the base of the explorer work, otherwise we will first train an embedding space on the data files included
-        in the project.  If a list of datasets are passed into this function, we will first upload and associate
-        those files with the project being used.
-
-        With an explorer project, we must first fully train an embedding space, and then a series of jobs will be
-        started to create neural function models on each column in the embedding space.
-
-        There are two waiting modes -- wait_for_completion will wait for both the embedding space and all of the
-        model jobs to be completed before returning.  In this case it will return a tuple of the EmbeddingSapce
-        and a list of models associated with the explorer project.
-
-        If this is set to false but wait_for_model_jobs is set, the function will wait unitl the embedding space is
-        completed, and there are jobs for each column in place and return a tuple of the Embedding space and a
-        list of Jobs associated with each model being worked on.
-
-        If both wait_for_completion and wait_for_model_jobs are False, we will return a tuple of the Embedding space
-        and the embedding space training job, unless the embedding space was already trained when the create was
-        called, in which case we will revert to the return values as if wait_for_model_jobs was set (e.g.: a
-        tuple of the embedding space and the model jobs).
-
-        If either of the wait flags are set, but the notebook or script crashes during the operation, note that
-        the full explorer creation procession is still operating and the caller can simpply look up the
-        embedding space and call it's "get_training_jobs" and "get_model_jobs" method to inspect the progress.
-
-        Arguments:
-            project: FeatrixProject or str id of the project to use instead of self.current_project
-            credit_budget(int): the default credit budget for the training
-            files: a list of dataframes or paths to files to upload and associate with the project
-                        (optional - if you already associated files with the project, this is redundant)
-            wait_for_model_jobs(bool): wait for the model jobs to be created and return a list of these jobs.
-            wait_for_completion(bool): make this synchronous, printing out status messages while waiting for the
-                                    training to complete
-            **kwargs:  additional arguments for the ESCreate args, if any
-
-        Returns:
-            Tuple(FeatrixNeuralFunction, Job, Job) -- the featrix model and the jobs associated with training the model
-                         if wait_for_completion is True, the model returned will be fully trained, otherwise the
-                         caller will need ot check on the progress of the jobs and update the model when they are
-                         complete.
-        """
-        from bson import ObjectId
-        import uuid
-
-        if wait_for_completion:
-            wait_for_model_jobs = True
-
-        if project is None or (
-            isinstance(project, str) and ObjectId.is_valid(project) is False
-        ):
-            if files is None:
-                raise FeatrixException(
-                    "Can not create a project and train a neural function without data files"
-                )
-            name = (
-                project
-                if isinstance(project, str)
-                else f"Explorer project {uuid.uuid4()}"
-            )
-            project = FeatrixProject.new(self, name)
-        elif isinstance(project, str):
-            if project not in self._projects:
-                self.projects()
-            project = self._projects.get(project)
-            if project is None:
-                raise FeatrixException(f"No such project {project}")
-
-        if files is not None:
-            self.upload_files(files, associate=project)
-            project = self.get_project_by_id(project.id)
-
-        if project.ready(wait_for_completion=wait_for_completion) is False:
-            raise FeatrixException(
-                "Project not ready for training, datafiles still being processed"
-            )
-
-        # The API will return the jobs that are in progress -- typically just the embedding space training
-        # unless the embedding space is already trained, then it will return the list of model jobs (one
-        # for each field)
-        es, jobs = project.new_explorer(
-            f"{project.name} Explorer",
-            training_credits_budgeted=credit_budget,
-            **kwargs,
-        )
-        if es.training_state != TrainingState.COMPLETED:
-            if wait_for_model_jobs is False:
-                # Return the EmbeddingSpace and the ES Training job
-                return es, jobs[0]
-            # Wait for the ES training to finish, and the model jobs to be scheduled.
-            # The first job will be the es training (if there is a second, it will be the wait-for-training
-            # that kicks off the model creations)
-            jobs[0].wait_for_completion("Embedding Space Training: ")
-            es = es.by_id(es.id, self)
-            tj = (
-                jobs[1]
-                if len(jobs) > 1
-                and jobs[1].job_type == JobType.JOB_TYPE_ES_WAIT_TO_TRAIN
-                else None
-            )
-            jobs = es.explorer_training_jobs(
-                wait_for_creation=True, wait_for_training_job=tj
-            )
-            # Note that we were waiting for the watcher to finish, so make sure there weren't updates to the ES
-            es = es.by_id(str(es.id), self)
-
-        # Now jobs will be the jobs of the model trainings and es will be the trained es if we get here
-        if wait_for_completion:
-            FeatrixJob.wait_for_jobs(
-                self, jobs, f"Explorer Model Training ({len(jobs)} jobs)"
-            )
-            models = es.neural_functions(force=True)
-            return es, models
-        return es, jobs
 
     def check_updates(self, **kwargs):
         args = {}
@@ -865,13 +629,13 @@ if __name__ == "__main__":
     # for testing
     ap = argparse.ArgumentParser()
     ap.add_argument(
-        "--url", "-u", default="http://localhost:3001", help="URL to connect with"
+        "--url", "-u", default="http://localhost:3001/", help="URL to connect with"
     )
     ap.add_argument("--client-id", "-i", help="Client id to use")
     ap.add_argument("--client-secret", "-s", help="Client secret to use")
     ap.add_argument("--key-file", "-k", help="Path to key file to use")
     ap.add_argument(
-        "--allow-http", "-a", help="allow http, set for http://localhost automatically"
+        "--allow-http", "-a", help="allow http, set for http://localhost/ automatically"
     )
     args = ap.parse_args()
     if "http:" in args.url and "localhost" in args.url:

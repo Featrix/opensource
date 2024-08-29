@@ -1,7 +1,7 @@
 #  -*- coding: utf-8 -*-
 #############################################################################
 #
-#  Copyright (c) 2024, Featrix, Inc. All rights reserved.
+#  Copyright (c) 2024, Featrix, Inc.
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"), to deal
@@ -20,13 +20,38 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+#############################################################################
 #
+#     Welcome to...
+#
+#      _______ _______ _______ _______ ______ _______ ___ ___
+#     |    ___|    ___|   _   |_     _|   __ \_     _|   |   |
+#     |    ___|    ___|       | |   | |      <_|   |_|-     -|
+#     |___|   |_______|___|___| |___| |___|__|_______|___|___|
+#
+#                                                 Let's embed!
 #
 #############################################################################
 #
-#  Yes, you can see this file, but Featrix, Inc. retains all rights.
+#  Sign up for Featrix at https://app.featrix.com/
+# 
+#############################################################################
+#
+#  Check out the docs -- you can either call the python built-in help()
+#  or fire up your browser:
+#
+#     https://featrix-docs.readthedocs.io/en/latest/
+#
+#  You can also join our community Slack:
+#
+#     https://join.slack.com/t/featrixcommunity/shared_invite/zt-28b8x6e6o-OVh23Wc_LiCHQgdVeitoZg
+#
+#  We'd love to hear from you: bugs, features, questions -- send them along!
+#
+#     hello@featrix.ai
 #
 #############################################################################
+#
 from __future__ import annotations
 
 from pathlib import Path
@@ -45,12 +70,11 @@ from .models.upload import Upload
 
 class FeatrixUpload(Upload):
     """
-    Represents a file upload to Featrix server for use in training.  This is the metadata of the file, including
-    the results of Featrix's analysis of the file and possible enrichments.
+    Represents a file upload to the Featrix server for training, including metadata, analysis results, and possible enrichments.
 
-    If you have the id of an upload, you can retrieve the object with the .by_id() method, and if you want to
-    refresh a copy of an upload object you have that might have changed, you can use the .refresh() call.
+    Retrieve an upload by ID with `.by_id()`, and refresh an existing upload object with `.refresh()` if it might have changed.
     """
+
 
     _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
@@ -73,16 +97,18 @@ class FeatrixUpload(Upload):
 
     def get_jobs(self, active: bool = True) -> List["FeatrixJob"]:  # noqa forward ref
         """
-        Return a list of jobs that are associated with this upload.  By default, it will only
-        return active (not finished), but the caller can use the two arguments to control this.
+        Return a list of jobs associated with this upload.
 
-        Arguments:
-            active: bool: If True, only return active jobs
-            training: bool: If True, only return training jobs
+        By default, only active jobs are returned. Use the arguments to filter results.
+
+        Args:
+            active (bool): If `True`, return only active jobs.
+            training (bool): If `True`, return only training jobs.
 
         Returns:
-            List[FeatrixJob]: The list of jobs associated with this model
+            List[FeatrixJob]: The list of jobs associated with this upload.
         """
+
         from .featrix_job import FeatrixJob  # noqa forward ref
 
         jobs = []

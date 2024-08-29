@@ -56,7 +56,7 @@ A Quick Example
             files=["/home/user/sales.csv"],
             wait_for_completion=True
     )
-    prediction = nf.predict(dict(product_type="macbook")
+    prediction = nf.predict(dict(product_type="macbook"))
     print(prediction)
     # [{'revenue': 3255.10}]
 

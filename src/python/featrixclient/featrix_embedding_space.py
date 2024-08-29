@@ -20,13 +20,38 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+#############################################################################
 #
+#     Welcome to...
+#
+#      _______ _______ _______ _______ ______ _______ ___ ___
+#     |    ___|    ___|   _   |_     _|   __ \_     _|   |   |
+#     |    ___|    ___|       | |   | |      <_|   |_|-     -|
+#     |___|   |_______|___|___| |___| |___|__|_______|___|___|
+#
+#                                                 Let's embed!
 #
 #############################################################################
 #
-#  Yes, you can see this file, but Featrix, Inc. retains all rights.
+#  Sign up for Featrix at https://app.featrix.com/
+# 
+#############################################################################
+#
+#  Check out the docs -- you can either call the python built-in help()
+#  or fire up your browser:
+#
+#     https://featrix-docs.readthedocs.io/en/latest/
+#
+#  You can also join our community Slack:
+#
+#     https://join.slack.com/t/featrixcommunity/shared_invite/zt-28b8x6e6o-OVh23Wc_LiCHQgdVeitoZg
+#
+#  We'd love to hear from you: bugs, features, questions -- send them along!
+#
+#     hello@featrix.ai
 #
 #############################################################################
+#
 from __future__ import annotations
 
 import time
@@ -248,21 +273,6 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         results = fc.api.op("es_get", embedding_space_id=str(es_id))
         return ApiInfo.reclass(FeatrixEmbeddingSpace, results, fc=fc)
 
-    def get_explorer_data(self, force: bool = False) -> Dict:
-        """
-        Retrieve the explorer data for this embedding space, which includes the neural attributes
-
-        Args:
-            force: If True, force a refresh of the explorer data
-
-        Returns:
-            Dict of the explorer data
-        """
-        if self._explorer_data is None or force:
-            self._explorer_data = self._fc.api.op(
-                "es_get_explorer", embedding_space_id=str(self.id)
-            )
-        return self._explorer_data
 
     def find_training_jobs(self) -> List["FeatrixJob"]:  # noqa forward ref
         """
@@ -275,57 +285,6 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             "es_get_training_jobs", embedding_space_id=str(self.id)
         )
         return ApiInfo.reclass(FeatrixJob, results, fc=self._fc)
-
-    def explorer_training_jobs(
-        self,
-        wait_for_creation: bool = False,
-        wait_for_training_job: "FeatrixJob" = None,  # noqa
-        max_wait: int = 5,
-    ) -> List["FeatrixJob"]:  # noqa forward ref
-        """
-        Get training jobs for an explorer project creation
-
-        Args:
-            wait_for_creation: If True, wait for the jobs to be created
-            wait_for_training_job: If provided, wait for this job to complete first
-            max_wait: Maximum number of times to wait for the jobs to be created
-
-        Returns:
-            List of FeatrixJob objects
-        """
-        from .featrix_job import FeatrixJob  # noqa
-
-        if wait_for_training_job:
-            # Wait for this job first -- it will be kicking the rest off.
-            wait_for_training_job.wait_for_completion(
-                f"Waiting for job watcher completion (id {wait_for_training_job.id})..."
-            )
-        if self.es_neural_attrs is None:
-            print("es neurals are none!")
-            es = self.by_id(str(self.id), fc=self._fc)
-        else:
-            es = self
-        if es.es_neural_attrs is None:
-            raise RuntimeError(
-                f"EmbeddingSpace did not have neural attributes after training ({es.id})"
-            )
-        jobs = es.find_training_jobs()
-        if wait_for_creation:
-            cnt = 0
-            columns = len(es.es_neural_attrs.get("col_order", []))
-            while len(jobs) != columns:
-                if cnt == max_wait:
-                    raise RuntimeError(
-                        f"Model Jobs not scheduled correctly: {len(jobs)} of {columns} found"
-                    )
-                cnt += 1
-                display_message(
-                    "Waiting for model trailing jobs to all be scheduled... "
-                    f"({len(jobs)} / {columns})"
-                )
-                time.sleep(5)
-                jobs = es.find_training_jobs()
-        return jobs
 
     def neural_functions(
         self, stale_timeout: int = settings.stale_timeout
@@ -360,7 +319,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         stale_timeout: int = settings.stale_timeout,
     ) -> FeatrixNeuralFunction:
         """
-        Get a model by it's id from the cache or server (if not in the cache or force is True)
+        Get a model by its id from the cache or server (if not in the cache or force is True)
 
         Arguments:
             model_id: The ID of the model to retrieve
@@ -479,19 +438,19 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             # If we are leveraging an embedding space we created previously, the job will be marked as finished already
         return nf.refresh()
 
-    def histogram(self) -> EmbeddingDistanceResponse:
-        """
-        Make call to get the histogram of this embedding space from the server.
-        """
-        results = self._fc.api.op("es_get_histogram", embedding_space_id=str(self.id))
-        return results
+    # def histogram(self) -> EmbeddingDistanceResponse:
+    #     """
+    #     Make call to get the histogram of this embedding space from the server.
+    #     """
+    #     results = self._fc.api.op("es_get_histogram", embedding_space_id=str(self.id))
+    #     return results
 
-    def distance(self) -> EmbeddingDistanceResponse:
-        """
-        Make the call to get the distance of the embedding space from the server.
-        """
-        results = self._fc.api.op("es_get_distance", embedding_space_id=str(self.id))
-        return results
+    # def distance(self) -> EmbeddingDistanceResponse:
+    #     """
+    #     Make the call to get the distance of the embedding space from the server.
+    #     """
+    #     results = self._fc.api.op("es_get_distance", embedding_space_id=str(self.id))
+    #     return results
 
     def delete(self) -> "FeatrixEmbeddingSpace":
         """
