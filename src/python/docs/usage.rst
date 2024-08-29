@@ -51,10 +51,10 @@ Working with Data
     import pandas as pd
     df = pd.read_csv(path_to_your_file)
 
-Train a vector space and a model
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Train an embedding space and a model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can train multiple models on a single vector space.
+You can train multiple models on a single embedding space.
 
 Check out our `live Google Colab demo notebooks <https://featrix.ai/demo>` for examples. The general approach is as follows:
 
