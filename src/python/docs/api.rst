@@ -5,46 +5,58 @@ Featrix Client
 
 .. autosummary::
 
-To use Featrix, you will need an account on `https://app.featrix.com`.  You can preform all operations via the web interface, or you can generate an API key on the web interface and
-use that API key to interact with Featrix programmatically via the object API provided in Python.  This documentation describes the object API interface.
+"""
+Featrix API Usage
+=================
 
-==============
-Authentication
-==============
+1. Account Setup
+----------------
+Create an account and log in at `https://app.featrix.com`.
 
-To use the API, you will need to create an account and login to `https://app.featrix.com`.  Once logged in, select the *API Keys* item near the bottom of the left-hand navigation pane.   This will take you *Manage API Keys* screen, where you create a new key by selecting the *Create New Api Key* button and providing a name for your key.
-Working with it is pretty easy. You can call help() on Python objects to see the docstrings on the objects.
+2. Generate API Key
+-------------------
+- Navigate to **API Keys** at the bottom of the left-hand menu.
+- Click **Create New API Key**, name your key, and save the **Client ID** and **Client Secret** provided.
+  
+  .. note::
+     These values are not recoverable once the dialog is closed.
 
-Generally, you create a Featrix object, which will connect to the Featrix server, perform authentication and give you an object to interact with the API easily.
+3. Logging in with the API
+--------------------------
+- Install via pip:
 
-In order to use the API, you will need an API key from the web interface.  Once you have created an account and logged into `https://app.featrix.com`, you can select the *Api Keys* menu item on the bottom of the left navigation pane, , which consist of a client id and client secret, which the web interface will give you when you generate the API key. This will display a dialog
-box wiht the *Client ID* and *Client Secret* that you will need to use the API.  You need to save these values in a secure place, as they are not recoverable once you dismiss the dialog.  You can provide these keys to the API in multiple ways, as discussed below.
+.. code-block:: console
 
-===
-API
-===
+   $ pip install featrixclient     # or pip3 install featrixclient
 
-The API contains a primary interface (`Featrix`) and six primary objects: `FeatrixUpload`, `FeatrixProject`, `FeatrixEmbeddingSpace`, `FeatrixModel`, `FeatrixPrediction`, and `FeatrixJob`.
+- Instantiate a :class:`Featrix` object in Python to authenticate and connect to the API.
 
-The `Featrix` has most of the major entry points for uploading files, creating projects, training embedding spaces, neural functions/models. These interfaces return one or more of the primary objects, and each of those provides an additional set of methods.
+.. code-block:: python
 
-The `FeatrixUpload` object is used to represent data files that up upload into the system.  They are processed and will contain meta-data about what Featrix discovered as it interrogated and enriched the file.
+    import featrixclient as ft                                        # pip3 install featrixclient
 
-The `FeatrixProject` is where you create your embedding spaces. It allows you to associate files you have uploaded with the project, and set parameters for creating embedding spaces.  Additionally, predictive models (neural functions), which are created from embeddings, are associated with the project as well.
+    FEATRIX_CLIENT_ID = os.environ.get('FEATRIX_CLIENT_ID')           # Put your secrets in a secrets manager!
+    FEATRIX_CLIENT_SECRET = os.environ.get('FEATRIX_CLIENT_SECRET') 
 
-The `FeatrixEmbeddingSpace` is trained on the data files associated with a project and provides the metadata interface to your trained Embedding Space.
+    featrix = ft.new_client(client_id=FEATRIX_CLIENT_ID, client_secret=FEATRIX_CLIENT_SECRET)
 
-The `FeatrixModel` (or Neural Function) represents a predictive model. It is trained using an embedding space and either new data for the model specifically or some of the data that the embedding space was trained on, depending on your application needs.
+- You can use :func:`help()` on Python objects to view their docstrings.
 
-The `FeatrixPrediction` represents a prediction you have run against a neural function/predictive model. It has both the query you used as well as the result from that query and allows you to retrieve the results of previous predictions.
+Featrix API Overview
+=====================
 
-The `FeatrixJob` represents asynchronous jobs that are being run on your behalf such as training an embedding space or model. They also provide incremental feedback about the job's progress.
+The API provides a primary interface, `Featrix`, and six key objects: `FeatrixUpload`, `FeatrixProject`, `FeatrixEmbeddingSpace`, `FeatrixModel`, and `FeatrixJob`.
 
+- **`Featrix`**: Main entry point for accessing everything in the Featrix environment.
+- **`FeatrixUpload`**: Represents data files uploaded to the system. Contains metadata after processing and enrichment.
+- **`FeatrixProject`**: Manages embedding spaces, associates uploaded files, sets parameters, and links predictive models to projects.
+- **`FeatrixEmbeddingSpace`**: Trained on project data, provides metadata interface for the trained embedding space.
+- **`FeatrixNeuralFunction`**: Represents a predictive model. Trained on embedding spaces and specific datasets.
+- **`FeatrixJob`**: Represents asynchronous tasks like training, providing progress updates.
 
-You can build scalar predictions, classifications, recommendations, and more with this API. You can also cluster data or query for nearest neighbors by leveraging the embedding space. You can extend the embedding spaces, branch them, tune their training, and more.
+The API supports scalar predictions, classifications, recommendations, clustering using embedding spaces. You can use our embeddings with popular vector databases for similarity search of your tabular data. You can also mix in embeddings from any LLM model into Featrix and, by default, Featrix uses sentence-transformer models for string embeddings found in your data.
 
-We have designed this API to work with standard Python ecosystems: you should be able to easily connect Pandas, databases, matplotlib, sklearn, numpy, and PyTorch with the API. If you run into issues or want enhancements, drop us a note at mitch@featrix.ai or join our `Slack community <https://join.slack.com/t/featrixcommunity/shared_invite/zt-25ad0tj5j-3VyaO3YdI8qI4kdr2VhUGA>`!
-
+The API integrates seamlessly with Python libraries like Pandas, Matplotlib, Sklearn, Numpy, and PyTorch. For support or enhancements, contact hello@featrix.ai or join our `Slack community <https://join.slack.com/t/featrixcommunity/shared_invite/zt-25ad0tj5j-3VyaO3YdI8qI4kdr2VhUGA>`_.
 
 .. autoclass::  featrixclient.networkclient.Featrix
     :members:
@@ -56,9 +68,6 @@ We have designed this API to work with standard Python ecosystems: you should be
     :members:
 
 .. autoclass::  featrixclient.FeatrixModel
-    :members:
-
-.. autoclass::  featrixclient.FeatrixPrediction
     :members:
 
 .. autoclass::  featrixclient.FeatrixJob
