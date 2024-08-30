@@ -1,13 +1,9 @@
-Featrix Client
-==============
+Featrix API Usage
+=================
 
 .. toctree::
 
 .. autosummary::
-
-"""
-Featrix API Usage
-=================
 
 1. Account Setup
 ----------------
