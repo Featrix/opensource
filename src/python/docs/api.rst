@@ -57,13 +57,16 @@ The API integrates seamlessly with Python libraries like Pandas, Matplotlib, Skl
 .. autoclass::  featrixclient.networkclient.Featrix
     :members:
 
+.. autoclass::  featrixclient.FeatrixUpload
+    :members:
+
 .. autoclass::  featrixclient.FeatrixProject
     :members:
 
 .. autoclass::  featrixclient.FeatrixEmbeddingSpace
     :members:
 
-.. autoclass::  featrixclient.FeatrixModel
+.. autoclass::  featrixclient.FeatrixNeuralFunction
     :members:
 
 .. autoclass::  featrixclient.FeatrixJob
