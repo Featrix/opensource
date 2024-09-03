@@ -82,12 +82,4 @@ class Model(FeatrixBase):
     training_credits_budgeted: float = 0.0
     training_credits_actual: float = 0.0
 
-    # training_runs: List[TrainingRun]
-    # "start_time": start_time,
-    # "end_time": time.time(),
-    # "mlp_predictor": str(mlp_predictor),
-    # "job_id": job.job_id,
-
-    # traing_runs: [TrainingRun]
-
     user_meta: Dict[str, Any] = Field(default_factory=dict)

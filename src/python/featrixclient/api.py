@@ -44,7 +44,7 @@
 #
 #  You can also join our community Slack:
 #
-#     https://join.slack.com/t/featrixcommunity/shared_invite/zt-28b8x6e6o-OVh23Wc_LiCHQgdVeitoZg
+#     https://bits.featrix.com/slack
 #
 #  We'd love to hear from you: bugs, features, questions -- send them along!
 #
@@ -79,17 +79,12 @@ from .exceptions import FeatrixBadApiKeyError
 from .exceptions import FeatrixConnectionError
 from .exceptions import FeatrixException
 from .exceptions import FeatrixNoApiKeyError
-from .models import ChainedJobType
-from .models import CreateDBArgs
-from .models import DBClusterArgs
 from .models import EncodeRecordsArgs
 from .models import ESCreateArgs
 from .models import GuardRailsArgs
 from .models import JobType
 from .models import ModelCreateArgs
 from .models import ModelPredictionArgs
-from .models import NewNeuralFunctionArgs
-from .models import NNQueryArgs
 from .models import TrainMoreArgs
 
 logger = logging.getLogger(__name__)
@@ -120,19 +115,6 @@ class FeatrixApi:
         JobType.JOB_TYPE_ENCODE_RECORDS: (
             EncodeRecordsArgs,
             "neural/embedding_space/run-encode-records",
-        ),
-        JobType.JOB_TYPE_ES_CREATE_DB: (
-            CreateDBArgs,
-            "neural/embedding_space/create-database",
-        ),
-        JobType.JOB_TYPE_DB_CLUSTER: (
-            DBClusterArgs,
-            "neural/embedding_space/run-db-cluster",
-        ),
-        JobType.JOB_TYPE_DB_NN_QUERY: (NNQueryArgs, "neural/embedding_space/nn-query"),
-        ChainedJobType.CHAINED_JOB_TYPE_NNF: (
-            NewNeuralFunctionArgs,
-            "neural/project/new-neural-function",
         ),
     }
 

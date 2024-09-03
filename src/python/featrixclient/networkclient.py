@@ -44,7 +44,7 @@
 #
 #  You can also join our community Slack:
 #
-#     https://join.slack.com/t/featrixcommunity/shared_invite/zt-28b8x6e6o-OVh23Wc_LiCHQgdVeitoZg
+#     https://bits.featrix.com/slack
 #
 #  We'd love to hear from you: bugs, features, questions -- send them along!
 #
@@ -219,18 +219,6 @@ class Featrix:
         project = FeatrixProject.new(self, name, user_meta=user_meta, tags=tags)
         self._store_project(project)
         return project
-
-    # def drop_project(self, project: FeatrixProject | str) -> None:
-    #     """
-    #     Drop a project from the cache of projects.  This will not delete the project from the Featrix system,
-    #     just remove it from the cache of projects in the Featrix object.
-
-    #     Args:
-    #         project: The project object or the id of the project to drop from the cache
-    #     """
-    #     project_id = str(project.id) if isinstance(project, FeatrixProject) else project
-    #     if project_id in self._projects:
-    #         del self._projects[project_id]
 
     def get_uploads(self) -> None:
         """
@@ -424,163 +412,6 @@ class Featrix:
     """
     Alias for get_neural_function
     """
-
-    def create_embedding_space(
-        self,
-        project: Optional[FeatrixProject | str] = None,
-        name: Optional[str] = None,
-        credit_budget: int = 3,
-        files: Optional[List[pd.DataFrame | str | Path]] = None,
-        wait_for_completion: bool = False,
-        encoder: Optional[Dict] = None,
-        ignore_cols: Optional[List[str] | str] = None,
-        focus_cols: Optional[List[str] | str] = None,
-        **kwargs,
-    ) -> "FeatrixEmbeddingSpace":  # noqa forward ref
-        """
-        Create a new embedding space within a specified project.
-
-        You can pass in strings or missing values without cleaning the data. If `wait_for_completion` is `True`, the process will be synchronous, with periodic status messages. Even if interrupted, the training will complete and can be queried later.
-
-        Args:
-            project (FeatrixProject | str | None): The project to use (ID or object); a new project is created if not provided.
-            name (str): The name of the embedding space.
-            credit_budget (int): The credit budget for training.
-            files (list | None): Optional list of DataFrames or file paths to upload and associate with the project.
-            wait_for_completion (bool): If `True`, runs synchronously, printing status messages during training.
-            encoder (dict | None): Optional dictionary of encoder overrides.
-            ignore_cols (list | str | None): Optional columns to ignore during training (list or comma-separated string).
-            focus_cols (list | str | None): Optional columns to focus on during training (list or comma-separated string).
-            **kwargs: Additional arguments for `ESCreateArgs`, e.g., `rows=1000`.
-
-        Returns:
-            FeatrixEmbeddingSpace: The created embedding space object.
-        """
-        from .featrix_embedding_space import FeatrixEmbeddingSpace
-        from bson import ObjectId
-
-        if project is None or (
-            isinstance(project, str) and ObjectId.is_valid(project) is False
-        ):
-            if files is None:
-                raise FeatrixException(
-                    f"Can not create a project named {project} and train a neural function without data files"
-                )
-            project = FeatrixProject.new(
-                self, project if isinstance(project, str) else f"Project {name}"
-            )
-        elif isinstance(project, str):
-            # We know it's a ObjectId from the above test
-            if project not in self._projects:
-                self.projects()
-            if project not in self._projects:
-                raise RuntimeError(f"No such project {project}")
-            project = self._projects[project]
-
-        upload_processing_wait = wait_for_completion
-        if files is not None:
-            self.upload_files(files, associate=project)
-            upload_processing_wait = True
-            # Get the refreshed version
-            project = self.get_project_by_id(project.id)
-
-        if project.ready(wait_for_completion=upload_processing_wait) is False:
-            raise FeatrixException(
-                "Project not ready for training, datafiles still being processed"
-            )
-        es = FeatrixEmbeddingSpace.new_embedding_space(
-            self,
-            project,
-            name=name,
-            credit_budget=credit_budget,
-            encoder=encoder,
-            ignore_cols=ignore_cols,
-            focus_cols=focus_cols,
-            wait_for_completion=wait_for_completion,
-            **kwargs,
-        )
-        return es
-
-    def create_neural_function(
-        self,
-        target_fields: str | List[str],
-        project: Optional[FeatrixProject | str] = None,
-        credit_budget: int = 3,
-        files: Optional[List[pd.DataFrame | str | Path]] = None,
-        wait_for_completion: bool = False,
-        encoder: Optional[Dict] = None,
-        ignore_cols: Optional[List[str] | str] = None,
-        focus_cols: Optional[List[str] | str] = None,
-        embedding_space: Optional[FeatrixEmbeddingSpace | str] = None,
-        **kwargs,
-    ) -> FeatrixNeuralFunction:
-        """
-        Create a new neural function within a specified project.
-
-        If a project (ID or `FeatrixProject`) is provided, it will be used. If it's a string and not an ID, a new project will be created with that name (or a name derived from `target_fields` if none is provided).
-
-        If an embedding space exists or is being trained in the project, it will be used to train the neural function. Otherwise, an embedding space will first be trained. If datasets are provided, they will be uploaded and associated with the project.
-
-        If `wait_for_completion` is `True`, the process will be synchronous, with status updates. The training jobs will complete even if interrupted and can be queried later. The method returns the created `FeatrixNeuralFunction`. If not waiting for completion, training jobs can be monitored via `.get_jobs()`.
-
-        Args:
-            target_fields (str | list): Field name(s) to target in predictions.
-            project (FeatrixProject | str | None): Project to use, or name for a new project.
-            credit_budget (int): Credit budget for training.
-            files (list | None): DataFrames or file paths to upload and associate with the project (optional).
-            wait_for_completion (bool): Run synchronously with status updates.
-            encoder (dict | None): Optional encoder overrides for the embedding space.
-            ignore_cols (list | str | None): Columns to ignore in training (list or comma-separated string).
-            focus_cols (list | str | None): Columns to focus on in training (list or comma-separated string).
-            **kwargs: Additional arguments for `ESCreateArgs`, e.g., `rows=1000`.
-
-        Returns:
-            FeatrixNeuralFunction: The created neural function model.
-        """
-        from bson import ObjectId
-
-        if project is None or (
-            isinstance(project, str) and ObjectId.is_valid(project) is False
-        ):
-            name = project if isinstance(project, str) else f"Project {target_fields}"
-            project = FeatrixProject.new(self, name)
-        elif isinstance(project, str):
-            if project not in self._projects:
-                self.projects()
-            project = self._projects.get(project)
-            if project is None:
-                raise RuntimeError(f"No such project {project}")
-        if files is not None:
-            self.upload_files(files, associate=project)
-            project = self.get_project_by_id(project.id)
-
-        project = self._projects[project.id]
-        if project.ready(wait_for_completion=wait_for_completion) is False:
-            raise FeatrixException(
-                "Project not ready for training, datafiles still being processed"
-            )
-        project = project.refresh()
-
-        nf = FeatrixNeuralFunction.new_neural_function(
-            self,
-            project,
-            target_fields,
-            credit_budget,
-            encoder,
-            ignore_cols,
-            focus_cols,
-            embedding_space=embedding_space,
-            **kwargs,
-        )
-        es = FeatrixEmbeddingSpace.by_id(nf.embedding_space_id, self)
-        if wait_for_completion:
-            jobs = es.get_jobs() + nf.get_jobs()
-            for idx, job in enumerate(jobs):
-                job.wait_for_completion(f"Step {idx}/{len(jobs)}: ")
-                if job.error:
-                    raise FeatrixJobFailure(job)
-        return nf.refresh()
-
 
     def check_updates(self, **kwargs):
         args = {}

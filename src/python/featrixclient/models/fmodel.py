@@ -40,3 +40,7 @@ class FModel(BaseModel):
     """
 
     model_config = ConfigDict(extra="allow", protected_namespaces=())
+
+    def __str__(self):
+        import json
+        return json.dumps(self.model_dump(), default=str, indent=4)

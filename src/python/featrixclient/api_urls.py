@@ -44,7 +44,7 @@
 #
 #  You can also join our community Slack:
 #
-#     https://join.slack.com/t/featrixcommunity/shared_invite/zt-28b8x6e6o-OVh23Wc_LiCHQgdVeitoZg
+#     https://bits.featrix.com/slack
 #
 #  We'd love to hear from you: bugs, features, questions -- send them along!
 #
@@ -64,14 +64,7 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 
 from .exceptions import FeatrixException
-from .models import Activity
 from .models import AllFieldsResponse
-from .models import ApiKeyAuthenticationRequest
-from .models import ApiKeyAuthResponse
-from .models import ApiKeyCreated
-from .models import ApiKeyEntry
-from .models import CreateDBArgs
-from .models import DBClusterArgs
 from .models import EmbeddingDistanceResponse
 from .models import EmbeddingSpace
 from .models import EmbeddingSpaceDeleteResponse
@@ -81,8 +74,6 @@ from .models import Feed
 from .models import FeedCreateArgs
 from .models import FeedWithEventCounts
 from .models import GuardRailsArgs
-from .models import Invitation
-from .models import InviteUserRequest
 from .models import JobDispatch
 from .models import JobMeta
 from .models import JobResults
@@ -90,9 +81,6 @@ from .models import Model
 from .models import ModelCreateArgs
 from .models import ModelFastPredictionArgs
 from .models import ModelPredictionArgs
-from .models import NewExplorerArgs
-from .models import NewNeuralFunctionArgs
-from .models import NNQueryArgs
 from .models import Organization
 from .models import Prediction
 from .models import Project
@@ -106,7 +94,8 @@ from .models import UpdatedResponse
 from .models import Upload
 from .models import UploadFetchUrlArgs
 from .models import User
-from .models import UserBrief
+# from .models import NewNeuralFunctionArgs
+# from .models import UserBrief
 
 Api = namedtuple("Api", ["url", "arg_type", "response_type", "list_response"])
 
@@ -115,33 +104,9 @@ class ApiInfo(BaseModel):
     model_config = ConfigDict(protected_namespaces=(), extra="allow")
 
     info_get: Api = Api("/info/", None, dict, False)
-    # users_get_all: Api = Api("/mosaic/users/", None, UserBrief, True)
-    # users_get_user: Api = Api("/mosaic/users/{email}", None, User, False)
-    # users_get_self: Api = Api("/mosaic/users/me/", None, User, False)
-    # users_post_current_org: Api = Api(
-    #     "/users/me/current_organization", str, None, False
-    # )
+    users_get_self: Api = Api("/mosaic/users/me/", None, User, False)
     # org_get_all: Api = Api("/mosaic/organizations/", None, Organization, True)
-    # org_get: Api = Api("/mosaic/organizations/{org_id}", None, Organization, False)
-    # # FIXME: reqeust type
-    # org_create: Api = Api("/mosaic/organizations/", str, Organization, False)
-    # # FIXME: reqeust type
-    # org_update: Api = Api("/mosaic/organizations/{org_id}", str, Organization, False)
-    # org_members: Api = Api("/mosaic/organizations/members", None, UserBrief, True)
-    # org_updates: Api = Api(
-    #     "/mosaic/organizations/updates", dict, UpdatedResponse, False
-    # )
-    # invite_create: Api = Api(
-    #     "/mosaic/invites/invite", InviteUserRequest, Invitation, False
-    # )
-    # invite_get_all: Api = Api("/mosaic/invites/", None, Invitation, True)
-    # invite_get_is_invited: Api = Api("/mosaic/invites/{email}", None, Invitation, False)
-    # apikey_get_all: Api = Api("/mosaic/keyauth/", None, ApiKeyEntry, True)
-    # apikey_delete: Api = Api("/mosaic/keyauth/{label}", None, ApiKeyEntry, False)
-    # apikey_create: Api = Api("/mosaic/keyauth/create", None, ApiKeyCreated, False)
-    # apikey_create_jwt: Api = Api(
-    #     "/mosaic/keyauth/jwt", ApiKeyAuthenticationRequest, ApiKeyAuthResponse, False
-    # )
+    org_get: Api = Api("/mosaic/organizations/{org_id}", None, Organization, False)
     # activity_get_all: Api = Api("/mosaic/activity/", None, Activity, True)
     # activity_get_by_project: Api = Api(
     #     "/mosaic/activity/project_id/{project_id}", None, Activity, True
@@ -266,12 +231,6 @@ class ApiInfo(BaseModel):
     job_model_guardrails: Api = Api(
         "/neural/embedding_space/check-guardrails", GuardRailsArgs, JobDispatch, False
     )
-    # job_encode_records: Api = Api(
-    #     "/neural/embedding_space/run-encode-records",
-    #     EncodeRecordsArgs,
-    #     list,
-    #     True,
-    # )
     job_fast_encode_records: Api = Api(
         "/neural/embedding_space/fast-encode-records",
         EncodeRecordsArgs,
@@ -287,9 +246,9 @@ class ApiInfo(BaseModel):
     # job_db_nn_query: Api = Api(
     #     "/neural/embedding_space/nn-query", NNQueryArgs, JobDispatch, False
     # )
-    job_chained_new_neural_function: Api = Api(
-        "/neural/project/new-neural-function", NewNeuralFunctionArgs, JobDispatch, True
-    )
+    # job_chained_new_neural_function: Api = Api(
+    #     "/neural/project/new-neural-function", NewNeuralFunctionArgs, JobDispatch, True
+    # )
     # job_chained_new_explorer: Api = Api(
     #     "/neural/project/new-explorer", NewExplorerArgs, JobDispatch, True
     # )

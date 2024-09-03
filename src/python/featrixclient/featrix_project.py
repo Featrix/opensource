@@ -44,7 +44,7 @@
 #
 #  You can also join our community Slack:
 #
-#     https://join.slack.com/t/featrixcommunity/shared_invite/zt-28b8x6e6o-OVh23Wc_LiCHQgdVeitoZg
+#     https://bits.featrix.com/slack
 #
 #  We'd love to hear from you: bugs, features, questions -- send them along!
 #
@@ -231,13 +231,12 @@ class FeatrixProject(Project):
     def create_embedding_space(
         self,
         name: Optional[str] = None,
-        credit_budget: int = 3,
-        wait_for_completion: bool = False,
+        wait_for_completion: bool = True,
         encoder: Optional[Dict] = None,
         ignore_cols: Optional[List[str] | str] = None,
         focus_cols: Optional[List[str] | str] = None,
         **kwargs,
-    ) -> Tuple["FeatrixEmbeddingSpace", FeatrixJob]:  # noqa forward ref
+    ) -> "FeatrixEmbeddingSpace":  # noqa forward ref
         """
         Create a new embedding space in a specified project.
 
@@ -248,7 +247,6 @@ class FeatrixProject(Project):
         Args:
             project (FeatrixProject | str | None): The project to use; a new project is created if not provided.
             name (str): Name of the embedding space.
-            credit_budget (int): Credit budget for training.
             files (list | None): DataFrames or file paths to upload and associate with the project (optional).
             wait_for_completion (bool): Run synchronously with status updates.
             encoder (dict | None): Optional encoder overrides for the embedding space.
@@ -257,7 +255,7 @@ class FeatrixProject(Project):
             **kwargs: Additional arguments for `ESCreateArgs`, e.g., `rows=1000`.
 
         Returns:
-            Tuple[FeatrixEmbeddingSpace, FeatrixJob]: The embedding space and associated training job.
+            FeatrixEmbeddingSpace: The embedding space and associated training job.
         """
 
 
@@ -265,13 +263,12 @@ class FeatrixProject(Project):
 
         if self.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException(
-                "Project not ready for creating an embedding space, datafiles still being processed or not present."
+                "Project not ready for creating an embedding space, data files still being processed or not present."
             )
         es = FeatrixEmbeddingSpace.new_embedding_space(
             fc=self._fc,
             project=self,
             name=name,
-            credit_budget=credit_budget,
             encoder=encoder,
             ignore_cols=ignore_cols,
             focus_cols=focus_cols,
@@ -295,7 +292,7 @@ class FeatrixProject(Project):
         project = self._fc.api.op("project_update", self)
         return ApiInfo.reclass(FeatrixProject, project, fc=self._fc)
 
-    def jobs(self, stale_timeout: int = settings.stale_timeout) -> List[FeatrixJob]:
+    def jobs(self) -> List[FeatrixJob]:
         """
         Retrieve the jobs associated with this project.  If the jobs have already been retrieved, they will be
         returned from the cache unless force is True.
@@ -306,21 +303,9 @@ class FeatrixProject(Project):
         Returns:
             List of FeatrixJob instances
         """
-        since = None
-        if (
-            self._jobs_cache_updated is None
-            or (datetime.utcnow() - self._jobs_cache_updated).total_seconds()
-            > stale_timeout
-        ):
-            since = self._jobs_cache_updated or datetime(2024, 1, 1)
-            self._jobs_cache_updated = datetime.utcnow()
-            results = self._fc.api.op(
-                "project_get_jobs", project_id=str(self.id), since=since
-            )
-            job_list = ApiInfo.reclass(FeatrixJob, results, fc=self._fc)
-            for job in job_list:
-                self._jobs_cache[str(job.id)] = job
-        return list(self._jobs_cache.values())
+        results = self._fc.api.op("project_get_jobs", project_id=str(self.id))
+        job_list = ApiInfo.reclass(FeatrixJob, results, fc=self._fc)
+        return job_list
 
     def job(
         self,
@@ -414,8 +399,7 @@ class FeatrixProject(Project):
 
     def neural_functions(
         self,
-        embedding_space: FeatrixEmbeddingSpace = None,
-        stale_timeout: int = settings.stale_timeout,
+        embedding_space: FeatrixEmbeddingSpace = None
     ):
         """
         This is a convenience function that allows the user to get all the neural_functions for all their
@@ -423,7 +407,6 @@ class FeatrixProject(Project):
 
         Arguments:
             embedding_space:  Get the models for the referenced embedding space, or if none, all of them
-            stale_timeout: number of seconds to allow cache to age before refeshing it
 
         Returns:
             List of FeatrixNeuralFunction instances across this project's embedding spaces
@@ -436,16 +419,17 @@ class FeatrixProject(Project):
                 )
             embeddings = [embedding_space]
         else:
-            embeddings = self.embedding_spaces(stale_timeout=stale_timeout)
+            embeddings = self.embedding_spaces()
         model_list = []
         for es in embeddings:
             if self._fc.debug:
                 print(f"Calling es.models for {es.id}")
-            model_list += es.neural_functions(stale_timeout=stale_timeout)
+            model_list += es.neural_functions()
         return model_list
 
     def find_neural_function(
-        self, ident: str, stale_timeout: int = settings.stale_timeout
+        self, 
+        ident: str
     ) -> FeatrixNeuralFunction:
         """
         Find a model by its id across all embedding spaces in this project.  The stale timeout tells us how old to
@@ -453,7 +437,6 @@ class FeatrixProject(Project):
 
         Arguments:
             ident: str - the id of the model to find
-            stale_timeout:  number of seconds to allow cache to age before refeshing it
         Returns:
             FeatrixNeuralFunction instance or None if not found
         """
@@ -466,9 +449,10 @@ class FeatrixProject(Project):
             self.embedding_spaces(stale_timeout=-1)
             self.neural_functions(stale_timeout=-1)
 
-        for es in self._embedding_spaces_cache.values():
-            if ident in es._models_cache:
-                return es._models_cache[ident]
+        for es in self.embedding_spaces(): #.values():
+            for nf in es.neural_functions():
+                if nf.id == ident:
+                    return nf
         raise RuntimeError(f"No such model {ident} in project {self.name} ({self.id})")
 
     def fields(self, stale_timeout: int = settings.stale_timeout):
@@ -582,30 +566,5 @@ class FeatrixProject(Project):
         self._jobs_cache = dict()
         self._embedding_spaces_cache = dict()
         self._all_fields_cache = []
-        self._fc.drop_project(self.id)
+        # self._fc.drop_project(self.id)
         return result
-
-    def new_explorer(self, name: str, training_credits_budgeted: float = 50, **kwargs):
-        es_create_args = FeatrixEmbeddingSpace.create_args(
-            str(self.id),
-            name,
-            training_budget_credits=training_credits_budgeted,
-            **kwargs,
-        )
-        """
-        Create a new explorer function in this project.  This will create a new embedding space and a new neural function
-        for each field. This is done with a series of jobs automatically, see the Featrix.new_explorer method for more
-        information.  
-        """
-        dispatches = self._fc.api.op(
-            "job_chained_new_explorer",
-            name=name,
-            project_id=str(self.id),
-            training_credits_budgeted=training_credits_budgeted,
-            embedding_space_create=es_create_args,
-        )
-        jobs = [
-            FeatrixJob.from_job_dispatch(dispatch, self._fc) for dispatch in dispatches
-        ]
-        es = FeatrixEmbeddingSpace.by_id(str(jobs[0].embedding_space_id), self._fc)
-        return es, jobs

@@ -1,8 +1,7 @@
-#!/usr/bin/env python3
 #  -*- coding: utf-8 -*-
 #############################################################################
 #
-#  Copyright (c) 2024, Featrix, Inc. All rights reserved.
+#  Copyright (c) 2024, Featrix, Inc.
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"), to deal
@@ -21,13 +20,38 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+#############################################################################
 #
+#     Welcome to...
+#
+#      _______ _______ _______ _______ ______ _______ ___ ___
+#     |    ___|    ___|   _   |_     _|   __ \_     _|   |   |
+#     |    ___|    ___|       | |   | |      <_|   |_|-     -|
+#     |___|   |_______|___|___| |___| |___|__|_______|___|___|
+#
+#                                                 Let's embed!
 #
 #############################################################################
 #
-#  Yes, you can see this file, but Featrix, Inc. retains all rights.
+#  Sign up for Featrix at https://app.featrix.com/
+# 
+#############################################################################
+#
+#  Check out the docs -- you can either call the python built-in help()
+#  or fire up your browser:
+#
+#     https://featrix-docs.readthedocs.io/en/latest/
+#
+#  You can also join our community Slack:
+#
+#     https://bits.featrix.com/slack
+#
+#  We'd love to hear from you: bugs, features, questions -- send them along!
+#
+#     hello@featrix.ai
 #
 #############################################################################
+#
 from __future__ import annotations
 
 import argparse
@@ -65,31 +89,24 @@ def generate_data_file(input_file, cnt, column_name=None, output_file=None):
         return out
 
 
-def get_client(env, client_id, client_secret):
+def get_client(featrixhost_env):
     import featrixclient as fc
 
-    if env == "dev":
-        os.environ["FEATRIX_CLIENT_ID"] = (
-            "bd5ec45d-1c22-49fb-9b14-b3b13b428c68" if client_id is None else client_id
-        )
-        os.environ["FEATRIX_CLIENT_SECRET"] = (
-            "4e7cddd7-dbdc-4f90-9a71-4b54cdec754e"
-            if client_secret is None
-            else client_secret
-        )
+    try:
+        client_id = os.environ["FEATRIX_CLIENT_ID"]
+        client_secret = os.environ["FEATRIX_CLIENT_SECRET"]
+    except:
+        print("FEATRIX_CLIENT_ID and FEATRIX_CLIENT_SECRET must be set in the environment")
+        exit(2)
+
+    target_api_server = "https://app.featrix.com"
+    allow_unencrypted_http = False
+
+    if featrixhost_env == "dev":
         target_api_server = "http://localhost:3001"
         allow_unencrypted_http = True
-    elif env in ["stage", "prod"]:
-        target_api_server = (
-            "https://stage.featrix.com" if env == "stage" else "https://app.featrix.com"
-        )
-        allow_unencrypted_http = False
-        if client_id is not None:
-            os.environ["FEATRIX_CLIENT_ID"] = client_id
-        if client_secret is not None:
-            os.environ["FEATRIX_CLIENT_SECRET"] = client_secret
     else:
-        raise RuntimeError(f"Unknown environment {env}")
+        target_api_server = featrixhost_env
 
     fc = fc.networkclient.new_client(
         target_api_server,
@@ -181,9 +198,9 @@ def test_uploads(
                         f"...uploaded {upload.filename} successfully in "
                         f"{(datetime.utcnow() - start).total_seconds()}"
                     )
-                uploads_to_delete.append(upload)
-                if project:
-                    projects_to_delete.append(project)
+                #uploads_to_delete.append(upload)
+                #if project:
+                #    projects_to_delete.append(project)
             except Exception as e:  # noqa
                 print("########### ERROR #########################")
                 print(f"Failed Upload test case {test_idx} with error {e}")
@@ -202,24 +219,21 @@ def test_nf(
     fc,
     data_dir: Path,
     test_cases: List[Dict],
-    verbose: bool = False,
-    raise_on_error: bool = False,
+    raise_on_error: bool = True,
 ):
-    if verbose:
-        print("\nTest Neural Function creation\n")
+    print("\nTest Neural Function creation\n")
     with tempfile.TemporaryDirectory() as _dir:
         td = Path(_dir)
         for test_idx, test_case in enumerate(test_cases):
             try:
-                if verbose:
-                    print(
-                        f"Starting NF test case {test_idx}:\n{json.dumps(test_case, indent=4)}"
-                    )
+                print(
+                    f"Starting Neural Function test case {test_idx}:\n{json.dumps(test_case, indent=4)}"
+                )
 
                 start = datetime.utcnow()
                 target_file = td / f"nf_test_{test_idx}-{uuid.uuid4()}.csv"
                 project_name = f"NF smoke test {test_idx} - {uuid.uuid4()}"
-                automation = test_case.get("automation", "upload")
+                # automation = test_case.get("automation", "upload")
                 sample_by = test_case.get("sample_by", test_case.get("target"))
                 target_column = test_case.get("target", test_case.get("sample_by"))
                 if sample_by is None:
@@ -230,36 +244,26 @@ def test_nf(
                     output_file=target_file,
                     column_name=sample_by,
                 )
+    
+                project = fc.create_project(f"NF smoke test 1 - {uuid.uuid4()}")
+                upload = fc.upload_file(target_file, associate=project)
+                project = wait_for_project(project)
+                print(f"......creating nf in project {project.name}")
+                # Here we will create/train the embedding, then create the neural.
 
-                if automation == "full":
-                    nf, job, job_2 = fc.create_neural_function(
-                        target_fields=target_column,
-                        project=project_name,
-                        files=[target_file],
-                        wait_for_completion=True,
-                    )
-                    project = fc.get_project_by_id(nf.project_id)
-                    upload = project.associated_uploads[0]
-                else:
-                    project = fc.create_project(f"NF smoke test 1 - {uuid.uuid4()}")
-                    upload = fc.upload_file(target_file, associate=project)
-                    project = wait_for_project(project)
-                    if verbose:
-                        print(f"......creating nf in project {project.name}")
-                    if automation == "project":
-                        # Here we will create/train the embedding, then create the neural.
-                        es, job = project.create_embedding_space(
-                            name="ES test", wait_for_completion=True
-                        )
-                        nf, job, job = es.create_neural_function(
-                            target_fields=target_column, wait_for_completion=True
-                        )
-                    else:
-                        nf, job, job = fc.create_neural_function(
-                            target_fields=target_column,
-                            project=project,
-                            wait_for_completion=True,
-                        )
+                print("------------------------------------------------------------------------------ create embedding space")
+                es = project.create_embedding_space(
+                    name="ES test", 
+                    wait_for_completion=True
+                )
+
+                print("------------------------------------------------------------------------------ create neural function")
+                nf = es.create_neural_function(
+                    target_field=target_column, 
+                    wait_for_completion=True
+                )
+
+                # print("nf = ", nf)
 
                 if "query" in test_case:
                     nf.predict(test_case["query"])
@@ -278,80 +282,9 @@ def test_nf(
                 print("########### ERROR #########################")
                 if raise_on_error:
                     raise
-    if verbose:
-        print(
-            f"\nTesting Neural Function creation finished in {(datetime.utcnow()-start).total_seconds()}\n"
-        )
-    return
-
-
-def test_explorer(
-    fc,
-    data_dir: Path,
-    test_cases: List[Dict],
-    verbose: bool = False,
-    raise_on_error: bool = False,
-):
-    from featrixclient.models import TrainingState
-
-    if verbose:
-        print("\nTest Embedding Explorer creation\n")
-    with tempfile.TemporaryDirectory() as _dir:
-        td = Path(_dir)
-        start = datetime.utcnow()
-        try:
-            for test_idx, test_case in enumerate(test_cases):
-                if verbose:
-                    print(
-                        f"Starting Explorer test case {test_idx}:\n{json.dumps(test_case, indent=4)}"
-                    )
-                target_file = td / f"nf_test_{test_idx}-{uuid.uuid4()}.csv"
-                generate_data_file(
-                    data_dir / test_case["name"],
-                    test_case.get("sample_size", 1000),
-                    output_file=target_file,
-                    column_name=test_case.get("sample_by"),
-                )
-
-                project_name = f"Explorer Test {test_idx} {uuid.uuid4()}"
-                es, models = fc.create_explorer(
-                    project=project_name, files=[target_file], wait_for_completion=True
-                )
-                project = fc.get_project_by_id(es.project_id)
-                uploads_to_delete.append(
-                    fc.get_upload(upload_id=project.associated_uploads[0].upload_id)
-                )
-                projects_to_delete.append(project)
-                if es is None or es.training_state != TrainingState.COMPLETED:
-                    raise RuntimeError(
-                        f"Explorer failed to create embedding space (project {project_name}) "
-                        "properly (missing or untrained)."
-                    )
-                if len(models) != 3:
-                    raise RuntimeError(
-                        f"Explorer failed to create 3 Models for ES (only created {len(models)} "
-                    )
-                for model in models:
-                    if model.training_state != TrainingState.COMPLETED:
-                        raise RuntimeError(
-                            f"Explorer failed to train Model {model.name} - {model.id}"
-                        )
-                print(
-                    f"......created explorer project {project_name} in "
-                    f"{(datetime.utcnow() - start).total_seconds()} secs"
-                )
-        except Exception as e:  # noqa
-            print("########### ERROR #########################")
-            print(f"Failed Explorer test case {test_idx} with error {e}")
-            print(traceback.format_exc())
-            print("########### ERROR #########################")
-            if raise_on_error:
-                raise
-    if verbose:
-        print(
-            f"\nTesting Embedding Explorer creation finished in {(datetime.utcnow()-start).total_seconds()}\n"
-        )
-
+    print(
+        f"\nTesting Neural Function creation finished in {(datetime.utcnow()-start).total_seconds()}\n"
+    )
     return
 
 
@@ -389,33 +322,19 @@ def test_es(
                     column_name=sample_by,
                 )
 
-                if automation == "full":
-                    es, job = fc.create_embedding_space(
-                        project=project_name,
-                        name="ES test",
-                        files=[target_file],
-                        wait_for_completion=True,
-                    )
-                    project = fc.get_project_by_id(es.project_id)
-                    upload = project.associated_uploads[0]
-                else:
-                    project = fc.create_project(project_name)
-                    upload = fc.upload_file(target_file, associate=project)
-                    project = wait_for_project(project)
-                    if automation == "project":
-                        es, job = project.create_embedding_space(
-                            name="ES test", wait_for_completion=True
-                        )
-                    else:
-                        es, job = fc.create_embedding_space(
-                            project=project,
-                            name="ES {test_idx} test",
-                            wait_for_completion=True,
-                        )
-                assert (
-                    job.finished is True
-                ), f"Job {job.id} did not finish with wait_for_completion"
-                assert job.error is False, f"Job {job.id} failed"
+                project = fc.create_project(project_name)
+                upload = fc.upload_file(target_file, associate=project)
+                project = wait_for_project(project)
+                es = project.create_embedding_space(
+                    name="ES test", 
+                    wait_for_completion=True
+                )
+
+                assert es is not None
+                # assert (
+                #     job.finished is True
+                # ), f"Job {job.id} did not finish with wait_for_completion"
+                # assert job.error is False, f"Job {job.id} failed"
 
                 uploads_to_delete.append(project)
                 projects_to_delete.append(upload)
@@ -440,7 +359,8 @@ def cleanup():
         u.delete()
 
 
-def ensure_featrixclient(ensure_pypi: bool, verbose: bool):
+def ensure_featrixclient(ensure_pypi: bool):
+    print(f"ensure_featrixclient: ensure_pypi = {ensure_pypi}")
     if ensure_pypi:
         try:
             from featrixclient.version import version, publish_time
@@ -452,33 +372,35 @@ def ensure_featrixclient(ensure_pypi: bool, verbose: bool):
         from featrixclient import __file__ as fc_file
 
         if "site-packages" in fc_file:
-            if verbose:
-                from featrixclient.version import version, publish_time
+            from featrixclient.version import version, publish_time
 
-                print(
-                    f"Using featrixclient {version} installed in {Path(fc_file).parent}, built {publish_time}"
-                )
+            print(
+                f"[1] Using featrixclient {version} installed in {Path(fc_file).parent}, built {publish_time}"
+            )
             return
         raise ImportError(
             f"featrixclient is being loaded from {Path(fc_file).parent} not site-packages."
         )
     else:
+        # try:
+        #     import featrixclient
+        # except ImportError:
+        # We assume we are running the smoketest in the src tree under test
+        srctop = str(top)
+        print("srctop = ", srctop)
+        sys.path.insert(0, srctop)
+
         try:
             import featrixclient
         except ImportError:
-            # We assume we are running the smoketest in the src tree under test
-            sys.path.append(str(top))
-
-            try:
-                import featrixclient
-            except ImportError:
-                raise ImportError(
-                    f"Could not find featrixclient in the source tree, python path {sys.path}"
-                )
-        if verbose:
-            print(
-                f"Using featrixclient from src in {Path(featrixclient.__file__).parent}"
+            path_str = '\n\t' + '\n\t'.join(sys.path)
+            raise ImportError(
+                f"Could not find featrixclient in the source tree, python path {path_str}"
             )
+    print(
+        f"[2] Using featrixclient from src in {Path(featrixclient.__file__).parent}"
+    )
+    return
 
 
 def read_test_driver(args):
@@ -522,17 +444,9 @@ def read_test_driver(args):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--featrix-host", help="dev (localhost) | Run against the specified Featrix host")
     ap.add_argument(
-        "--environment",
-        "-e",
-        default="dev",
-        choices=["dev", "prod", "stage"],
-        help="Environment to run the tests on",
-    )
-    ap.add_argument("--client-id", "-c", help="Run with this client id")
-    ap.add_argument("--client-secret", "-s", help="Run with this client secret")
-    ap.add_argument(
-        "--no-clean", action="store_true", help="Run with this client secret"
+        "--no-clean", action="store_true", help="Do not clean up uploads and projects after running"
     )
     ap.add_argument(
         "--no-clean-on-error",
@@ -546,9 +460,6 @@ def main():
     )
     ap.add_argument(
         "--skip-es", action="store_true", help="Skip the embedding space tests"
-    )
-    ap.add_argument(
-        "--skip-explorer", action="store_true", help="Skip the explorer tests"
     )
     ap.add_argument(
         "--raise-on-error", "-X", action="store_true", help="Stop tests on any error"
@@ -569,15 +480,17 @@ def main():
         "--ensure-pypi",
         action="store_true",
         help="Ensure we are running against an installed version of featrixclient, not the local src",
+        default=False
     )
-    ap.add_argument("--verbose", "-v", action="store_true", help="Print verbose output")
+    verbose = True
+    # ap.add_argument("--verbose", "-v", action="store_true", help="Print verbose output")
     args = ap.parse_args()
 
-    ensure_featrixclient(args.ensure_pypi, args.verbose)
+    ensure_featrixclient(args.ensure_pypi)
     args.data_dir = Path(args.data_dir)
     args.data_file = Path(args.data_file)
     args, test_cases = read_test_driver(args)
-    fc = get_client(args.environment, args.client_id, args.client_secret)
+    fc = get_client(args.featrix_host)
 
     start = datetime.utcnow()
     try:
@@ -586,7 +499,7 @@ def main():
                 fc,
                 args.data_dir,
                 test_cases["uploads"],
-                verbose=args.verbose,
+                verbose=verbose,
                 raise_on_error=args.raise_on_error,
             )
         if not args.skip_nf:
@@ -594,7 +507,6 @@ def main():
                 fc,
                 args.data_dir,
                 test_cases["nf"],
-                verbose=args.verbose,
                 raise_on_error=args.raise_on_error,
             )
         if not args.skip_es:
@@ -602,15 +514,7 @@ def main():
                 fc,
                 args.data_dir,
                 test_cases["es"],
-                verbose=args.verbose,
-                raise_on_error=args.raise_on_error,
-            )
-        if not args.skip_explorer:
-            test_explorer(
-                fc,
-                args.data_dir,
-                test_cases["explorer"],
-                verbose=args.verbose,
+                verbose=verbose,
                 raise_on_error=args.raise_on_error,
             )
         print(

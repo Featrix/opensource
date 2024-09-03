@@ -44,7 +44,7 @@
 #
 #  You can also join our community Slack:
 #
-#     https://join.slack.com/t/featrixcommunity/shared_invite/zt-28b8x6e6o-OVh23Wc_LiCHQgdVeitoZg
+#     https://bits.featrix.com/slack
 #
 #  We'd love to hear from you: bugs, features, questions -- send them along!
 #
@@ -130,9 +130,6 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
 
     _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class that retrieved or created this project, used for API calls/credentials"""
-    _models_cache: Dict[str, FeatrixNeuralFunction] = PrivateAttr(default_factory=dict)
-    _models_cache_updated: Optional[datetime] = PrivateAttr(default=None)
-    _explorer_data: Dict = PrivateAttr(default=None)
 
     @property
     def fc(self):
@@ -201,8 +198,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         fc: Any,
         project: "FeatrixProject" | str,  # noqa forward ref
         name: Optional[str] = None,
-        credit_budget: int = 3,
-        wait_for_completion: bool = False,
+        wait_for_completion: bool = True,
         encoding: Optional[Dict] = None,
         focus_cols: Optional[List[str] | str] = None,
         ignore_cols: Optional[List[str] | str] = None,
@@ -226,7 +222,6 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         es_create_args = cls.create_args(
             str(project.id) if isinstance(project, FeatrixProject) else project,
             name,
-            training_budget_credits=credit_budget,
             encoding=encoding or {},
             focus_cols=focus_cols or [],
             ignore_cols=ignore_cols or [],
@@ -274,9 +269,9 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         return ApiInfo.reclass(FeatrixEmbeddingSpace, results, fc=fc)
 
 
-    def find_training_jobs(self) -> List["FeatrixJob"]:  # noqa forward ref
+    def training_jobs(self) -> List["FeatrixJob"]:  # noqa forward ref
         """
-        Find any/all training jobs for this Embedding Space, returning them as a list in order they were executed
+        Fetch all training jobs for this Embedding Space, returning them as a list in order they were executed
 
         """
         from .featrix_job import FeatrixJob
@@ -286,112 +281,69 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         )
         return ApiInfo.reclass(FeatrixJob, results, fc=self._fc)
 
-    def neural_functions(
-        self, stale_timeout: int = settings.stale_timeout
-    ) -> List[FeatrixNeuralFunction]:
-        """
-        Retrieve all models for this embedding space.  If we don't have them cached, or if force is True, we'll
-        get them from a server call synchronously.
-        """
 
-        since = None
-        if (
-            self._models_cache_updated is None
-            or (datetime.utcnow() - self._models_cache_updated).total_seconds()
-            > stale_timeout
-        ):
-            since = self._models_cache_updated
-            self._models_cache_updated = datetime.utcnow()
-            results = self._fc.api.op(
-                "es_get_models", embedding_space_id=str(self._id), since=since
-            )
-            models = ApiInfo.reclass(FeatrixNeuralFunction, results, fc=self._fc)
-            for model in models:
-                # FIXME: The model isn't getting serialized correctly
-                if hasattr(model, "_id"):
-                    model.id = getattr(model, "_id")
-                self._models_cache[str(model.id)] = model
-        return list(self._models_cache.values())
+    def neural_functions(self) -> List[FeatrixNeuralFunction]:
+        """
+        Retrieve all neural functions for this embedding space.
+        """
+        results = self._fc.api.op(
+            "es_get_models", 
+            embedding_space_id=str(self._id)
+        )
+        models = ApiInfo.reclass(FeatrixNeuralFunction, results, fc=self._fc)
+        for model in models:
+            # FIXME: The model isn't getting serialized correctly
+            if hasattr(model, "_id"):
+                model.id = getattr(model, "_id")
+        return models #list(self._models_cache.values())
+
 
     def neural_function(
         self,
-        model_id: str | PydanticObjectId,
-        stale_timeout: int = settings.stale_timeout,
+        model_id: str | PydanticObjectId
     ) -> FeatrixNeuralFunction:
         """
-        Get a model by its id from the cache or server (if not in the cache or force is True)
+        Get a neural function by its id.
 
         Arguments:
             model_id: The ID of the model to retrieve
-            stale_timeout: The number of seconds to wait before refreshing the cache
 
         Returns:
             FeatrixNeuralFunction object
         """
         model_id = str(model_id)
-        if (
-            self._models_cache_updated is None
-            or model_id not in self._models_cache
-            or (datetime.utcnow() - self._models_cache_updated).total_seconds()
-            > stale_timeout
-        ):
-            result = self._fc.api.op(
-                "es_get_model", embedding_space_id=str(self.id), model_id=str(model_id)
-            )
-            model = ApiInfo.reclass(FeatrixNeuralFunction, result, fc=self._fc)
-            self._models_cache[model_id] = model
-        if model_id in self._models_cache:
-            return self._models_cache[model_id]
-        raise RuntimeError(
-            f"Model {model_id} not found in Embedding space {self.name} (id={self.id})"
+        result = self._fc.api.op(
+            "es_get_model", embedding_space_id=str(self.id), model_id=str(model_id)
         )
+        model = ApiInfo.reclass(FeatrixNeuralFunction, result, fc=self._fc)
+        return model
 
     def create_neural_function(
         self,
-        target_fields: str | List[str],
-        credit_budget: int = 3,
-        wait_for_completion: bool = False,
+        target_field: str,
+        target_field_type: Optional[str] = 'auto', # auto | set | scalar
+        wait_for_completion: bool = True,
         encoder: Optional[Dict] = None,
-        ignore_cols: Optional[List[str] | str] = None,
-        focus_cols: Optional[List[str] | str] = None,
         **kwargs,
-    ) -> Tuple[FeatrixNeuralFunction, "FeatrixJob", "FeatrixJob"]:  # noqa forward ref
+    ) -> FeatrixNeuralFunction:  # noqa forward ref
         """
-        Create a new neural function in the given project.  If a project is passed in (can be either a FeatrixProject
-        or the id of a project), we use that.  If the project is a string and not an id, we will assume it's a name
-        and create a new project (if it's none, we will create a name for the project using target_fields).
-
-        If an embedding space is already trained or being trained in the project, we will use that embedding space
-        to train the neural function model, otherwise we will first train an embedding space on the data files included
-        in the project.  If a list of datasets are passed into this function, we will first upload and associate
-        those files with the project being used.
+        Creates a new neural function -- a predictive model.
 
         If the wait_for_completion flag is set, this will be synchronous and
         print periodic messages to the console or notebook cell.  Note that the jobs are enqueued and running
-        so if the notebook is interrupted, reset or crashes, the training will still complete and can be queried
-        by using the methods get_neural_function or neural_functions.
+        so if the caller is interrupted, reset or crashes, the training will still complete.
 
-        In either case, a tuple is returned that includes the model and two FeatrixJob objects -- the first is
-        the embedding space training job, and the second is the model training job.  If the embedding space was
-        already training, the first job will be the last training job for that embedding space.
-
-        The caller, in the case where they do not wait for completion, can follow the progress via the jobs objects
+        The caller, in the case where they do not wait for completion, can follow the progress via the jobs objects.
 
         .. code-block:: python
 
-           model, es_training_job, nf_training_job = create_neural_function("field_name")
+           nf_training_job = create_neural_function("field_name")
            if nf_training_job.completed is False:
                nf_training_job = nf_training_job.check()
                print(nf_training_job.incremental_status)
 
-
-        They can also just wait on the neural function model's field training_state to be set to
-        TrainingState.COMPLETED ("trained")
-
         Arguments:
             target_fields: the field name(s) to target in the prediction
-            project: FeatrixProject or str id of the project to use or the name for a new project
-            credit_budget(int): the default credit budget for the training
             files: a list of dataframes or paths to files to upload and associate with the project
                         (optional - if you already associated files with the project, this is redundant)
             wait_for_completion(bool): make this synchronous, printing out status messages while waiting for the
@@ -405,52 +357,30 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
                               create_embedding_space(project, name, credits, files, wait_for_completion, rows=1000)
 
         Returns:
-            Tuple(FeatrixNeuralFunction, Job, Job) -- the featrix model and the jobs associated with training the model
-                         if wait_for_completion is True, the model returned will be fully trained, otherwise the
-                         caller will need ot check on the progress of the jobs and update the model when they are
-                         complete.
+            FeatrixNeuralFunction - the Featrix neural function.
         """
         from .featrix_job import FeatrixJob  # noqa forward ref
 
         project = self._fc.get_project_by_id(self.project_id)
         if project.ready(wait_for_completion=wait_for_completion) is False:
             raise FeatrixException(
-                "Project not ready for training, datafiles still being processed"
+                "Project {self.project_id} not ready for training, datafiles still being processed"
             )
         project = project.refresh()
 
         nf = FeatrixNeuralFunction.new_neural_function(
             fc=self._fc,
-            project=project,
-            target_field=target_fields,
-            credit_budget=credit_budget,
+            target_field=target_field,
+            target_field_type=target_field_type,
             encoder=encoder,
-            ignore_cols=ignore_cols,
-            focus_cols=focus_cols,
             embedding_space=self,
+            project=project,
+            wait_for_completion=wait_for_completion,
             **kwargs,
         )
-        if wait_for_completion:
-            training_jobs = nf.get_jobs()
-            training_jobs[0].wait_for_completion(
-                f"Training Neural Function {nf.name}: "
-            )
-            # If we are leveraging an embedding space we created previously, the job will be marked as finished already
-        return nf.refresh()
 
-    # def histogram(self) -> EmbeddingDistanceResponse:
-    #     """
-    #     Make call to get the histogram of this embedding space from the server.
-    #     """
-    #     results = self._fc.api.op("es_get_histogram", embedding_space_id=str(self.id))
-    #     return results
+        return nf
 
-    # def distance(self) -> EmbeddingDistanceResponse:
-    #     """
-    #     Make the call to get the distance of the embedding space from the server.
-    #     """
-    #     results = self._fc.api.op("es_get_distance", embedding_space_id=str(self.id))
-    #     return results
 
     def delete(self) -> "FeatrixEmbeddingSpace":
         """
@@ -458,9 +388,6 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         """
         result = self._fc.api.op("es_delete", embedding_space_id=str(self.id))
         return ApiInfo.reclass(FeatrixEmbeddingSpace, result, fc=self._fc)
-
-    def encode_record(self, upload: pd.DataFrame | str | Path) -> List[Dict]:
-        return self.embed_record(upload)
 
     def embed_record(self, upload: pd.DataFrame | str | Path) -> List[Dict]:
         """

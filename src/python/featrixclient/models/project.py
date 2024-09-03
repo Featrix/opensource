@@ -79,19 +79,6 @@ class ProjectType(Enum):
     EXPLORER = "explorer"
 
 
-class InvoiceState(Enum):
-    CREATED = "created"
-    PAID = "paid"
-    CANCELLED = "cancelled"
-
-
-class ProjectInvoiceRecord(BaseModel):
-    stripe_invoice_id: str
-    state: InvoiceState
-    date: datetime
-    training_complete: bool
-
-
 class Project(FeatrixBase):
     model_config = ConfigDict(extra="allow")
 
@@ -131,10 +118,6 @@ class Project(FeatrixBase):
         list
     ] = None  # format TBD - just need a spot for it right now.
     haystack_ad_hoc_results: Optional[list] = None  # for ad hoc run results...
-
-    # A list of invoices that have been created for this project for training.  Subscriptions (haystack) projects
-    # don't keep track of their invoices since they are monthly/annual, these are adhoc invoices for training
-    invoice_records: List[ProjectInvoiceRecord] = Field(default_factory=list)
 
 
 class ProjectCreateRequest(FModel):

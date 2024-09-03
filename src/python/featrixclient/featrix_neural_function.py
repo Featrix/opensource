@@ -44,7 +44,7 @@
 #
 #  You can also join our community Slack:
 #
-#     https://join.slack.com/t/featrixcommunity/shared_invite/zt-28b8x6e6o-OVh23Wc_LiCHQgdVeitoZg
+#     https://bits.featrix.com/slack
 #
 #  We'd love to hear from you: bugs, features, questions -- send them along!
 #
@@ -54,6 +54,7 @@
 #
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Any
 from typing import Dict
@@ -73,7 +74,6 @@ from .models import JobType
 from .models import Model
 from .models import ModelCreateArgs
 from .models import ModelFastPredictionArgs
-from .models import NewNeuralFunctionArgs
 from .models import PydanticObjectId
 
 
@@ -94,14 +94,22 @@ class FeatrixNeuralFunction(Model):
     _predictions_cache_updated: Optional[datetime] = PrivateAttr(default=None)
 
     @staticmethod
-    def create_args(project_id: str, **kwargs) -> ModelCreateArgs:
+    def create_args(
+        project_id: str, 
+        embedding_space_id: str,
+        target_field: str, 
+        target_field_type: str,
+        **kwargs) -> ModelCreateArgs:
         """
         Create the arguments for creating a model.  This is a helper function to make it easier to create a
         `ModelCreateArgs`
         """
         model_create_args = ModelCreateArgs(
             project_id=project_id,
+            embedding_space_id=embedding_space_id,
+            target_columns=[target_field],
         )
+        
         for k, v in kwargs.items():
             if k in ModelCreateArgs.__annotations__:
                 setattr(model_create_args, k, v)
@@ -159,78 +167,6 @@ class FeatrixNeuralFunction(Model):
     def refresh(self):
         return self.by_id(self.id, self.fc)
 
-    @classmethod
-    def new_neural_function(
-        cls,
-        fc: Any,
-        project: "FeatrixProject" | str,  # noqa F821 forward ref
-        target_field: str | List[str],
-        credit_budget: int = 3,
-        encoder: Optional[Dict] = None,
-        ignore_cols: Optional[List[str] | str] = None,
-        focus_cols: Optional[List[str] | str] = None,
-        embedding_space: Optional["FeatrixEmbeddingSpace" | str] = None,  # noqa F821 forward ref
-        **kwargs,
-    ) -> "FeatrixNeuralFunction":
-        """
-        Create a chained job to first train an embedding space, then the predictive model within that space. Returns the created `FeatrixNeuralFunction`. Use `embedding_space_id` and `.get_jobs()` to retrieve the embedding space and training jobs.
-
-        Args:
-            fc (FeatureClient): The feature client object for API requests.
-            target_field (str): The field to predict.
-            credit_budget (int): Credits allocated for training.
-            embedding_space (EmbeddingSpace): The embedding space to use for training.
-            encoder (dict | None): Optional encoder overrides for training.
-            ignore_cols (list | str | None): Columns to ignore during training.
-            focus_cols (list | str | None): Columns to focus on during training.
-            kwargs (dict): Additional arguments for embedding creation or model training.
-
-        Returns:
-            FeatrixNeuralFunction: The created predictive model.
-        """
-
-        from .featrix_job import FeatrixJob
-        from .featrix_project import FeatrixProject
-        from .featrix_embedding_space import FeatrixEmbeddingSpace
-
-        project_id = str(project.id) if isinstance(project, FeatrixProject) else project
-        if bson.ObjectId.is_valid(project_id) is False:
-            raise FeatrixException(
-                f"Invalid project id ({project_id}) passed in new_neural_function"
-            )
-        name = kwargs.pop("name", f"Predict_{'_'.join(target_field)}")
-        embedding_space_create = FeatrixEmbeddingSpace.create_args(
-            project_id=project_id,
-            name=name,
-            encoder=encoder or {},
-            ignore_cols=ignore_cols or [],
-            focus_cols=focus_cols or [],
-            **kwargs,
-        )
-        if embedding_space is not None:
-            embedding_space_create.embedding_space_id = str(embedding_space.id)
-
-        if isinstance(target_field, str):
-            target_field = [target_field]
-
-        neural_request = NewNeuralFunctionArgs(
-            project_id=project_id,
-            training_credits_budgeted=credit_budget,
-            embedding_space_create=embedding_space_create,
-            model_create=FeatrixNeuralFunction.create_args(
-                project_id, target_columns=target_field, **kwargs
-            ),
-        )
-        dispatches = fc.api.op("job_chained_new_neural_function", neural_request)
-        jobs = [FeatrixJob.from_job_dispatch(dispatch, fc) for dispatch in dispatches]
-
-        # Get the NF from the NF job in the job list.
-        for job in jobs:
-            if job.job_type == JobType.JOB_TYPE_MODEL_CREATE:
-                return cls.by_id(str(job.model_id), fc)
-        else:
-            raise FeatrixException("No model job found in chained jobs")
-
     def get_jobs(self, active: bool = True, training: bool = True) -> List[FeatrixJob]:
         """
         Return a list of jobs associated with this model.
@@ -285,3 +221,62 @@ class FeatrixNeuralFunction(Model):
                 f"Query {fp.debug_info.get('prediction_time', -1)}"
             )
         return fp.result
+    
+    @classmethod
+    def new_neural_function(
+        cls,
+        fc: Any,
+        target_field: str,
+        embedding_space: "FeatrixEmbeddingSpace",
+        project: "FeatrixProject",
+        target_field_type: Optional[str] = 'auto', # set | scalar
+        encoder: Optional[Dict] = None,
+        wait_for_completion: bool = True,
+        **kwargs,
+    ) -> "FeatrixNeuralFunction":
+        """
+        Create a neural function. Generally you would use FeatrixEmbeddingSpace.create_neural_function(), which calls this.
+        """
+        from .featrix_job import FeatrixJob
+        from .featrix_project import FeatrixProject  # noqa forward ref
+
+        project.refresh()
+        # before_nf_list = project.neural_functions()
+
+        name = kwargs.pop("name", f"Predict_{'_'.join(target_field)}")
+        
+        if name is None:
+            name = (
+                f"{project.name}-{uuid.uuid4()}"
+                if isinstance(project, FeatrixProject)
+                else f"Project {uuid.uuid4()}"
+            )
+
+        nf_create_args = cls.create_args(
+            str(project.id),
+            embedding_space.id,
+            target_field,
+            target_field_type,
+            **kwargs,
+        )
+
+        dispatch = fc.api.op("job_model_create", nf_create_args)
+        job = FeatrixJob.from_job_dispatch(dispatch, fc)
+
+        if wait_for_completion:
+            job.wait_for_completion(f"Job {job.job_type} (id={job.id}): ")
+            job.refresh()
+            if job.error:
+                raise FeatrixException(
+                    f"Failed to train neural function {nf}: {job.error_msg}"
+                )
+
+        project.refresh()
+        after_nf_list = project.neural_functions()
+        # print("OUR ES _ID = ", embedding_space.id)
+        for nf in after_nf_list:
+            if str(nf.job_id) == str(job.id):
+                nf.project = project
+                return nf
+
+        raise Exception("Well, something went sideways. Please contact support at hello@featrix.ai")

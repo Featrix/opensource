@@ -1,7 +1,7 @@
 #  -*- coding: utf-8 -*-
 #############################################################################
 #
-#  Copyright (c) 2024, Featrix, Inc. All rights reserved.
+#  Copyright (c) 2024, Featrix, Inc.
 #
 #  Permission is hereby granted, free of charge, to any person obtaining a copy
 #  of this software and associated documentation files (the "Software"), to deal
@@ -20,13 +20,38 @@
 #  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
+#############################################################################
 #
+#     Welcome to...
+#
+#      _______ _______ _______ _______ ______ _______ ___ ___
+#     |    ___|    ___|   _   |_     _|   __ \_     _|   |   |
+#     |    ___|    ___|       | |   | |      <_|   |_|-     -|
+#     |___|   |_______|___|___| |___| |___|__|_______|___|___|
+#
+#                                                 Let's embed!
 #
 #############################################################################
 #
-#  Yes, you can see this file, but Featrix, Inc. retains all rights.
+#  Sign up for Featrix at https://app.featrix.com/
+# 
+#############################################################################
+#
+#  Check out the docs -- you can either call the python built-in help()
+#  or fire up your browser:
+#
+#     https://featrix-docs.readthedocs.io/en/latest/
+#
+#  You can also join our community Slack:
+#
+#     https://bits.featrix.com/slack
+#
+#  We'd love to hear from you: bugs, features, questions -- send them along!
+#
+#     hello@featrix.ai
 #
 #############################################################################
+#
 from __future__ import annotations
 
 from enum import Enum
@@ -40,9 +65,9 @@ from pydantic import BeforeValidator
 from pydantic import Field
 
 from .fmodel import FModel
-from .job_type import ChainedJobType
 from .job_type import JobType
 from .pydantic_objectid import PydanticObjectId
+# from .job_type import ChainedJobType
 
 #
 # Some types that help convert input into proper forms whether they are coming from an API call or
@@ -93,8 +118,8 @@ class JobArgs(FModel):
     skip_auto_load: Optional[bool] = False
 
 
-class ChainedJobArgs(FModel):
-    job_type: ChainedJobType
+# class ChainedJobArgs(FModel):
+#     job_type: ChainedJobType
 
 
 # Where should this go?
@@ -172,16 +197,8 @@ class ESCreateArgs(JobArgs):
         title="Name of the Embedding Space",
     )
     #   Overrides the initial training epochs. FIXME: what is the default here?
-    epochs: int = Field(
-        default=5,
-        description="The number times that the learning algorithm will work through the entire training dataset.",
-        title="Training Epochs",
-    )
-    batch_size: int = Field(
-        default=32,
-        description="The number of samples to process when updating the model (breaking an epoch into smaller batches)",
-    )
-    # Run detection code and print out diagnostics and exit. No training of a embedding_space space.
+    epochs: Optional[int] = 0
+    batch_size: Optional[int] = 0
     detect_only: bool = False
     detect_only_filename: Optional[str] = None
     # Overwrites an existing vector space if it exists.
@@ -341,29 +358,6 @@ class TrainMoreArgs(JobArgs):
     )
 
 
-class EmbeddingsDistanceArgs(JobArgs):
-    job_type: JobType = Field(
-        default=JobType.JOB_TYPE_ES_DISTANCE,
-        frozen=True,
-        description="Embedding space distance. The JobType should not be changed",
-    )
-    project_id: Optional[PydanticObjectId] = Field(
-        default=None,
-        description="The ID of the project to which the embedding space belongs",
-        title="Project ID",
-    )
-    embedding_space_id: Optional[PydanticObjectId] = Field(
-        default=None,
-        description="The ID of the embedding space in which compute distances",
-        title="Embedding Space ID",
-    )
-    col_pairs: Optional[List[List]] = Field(
-        default=None,
-        description="The list of pairs we want to compute distances on.",
-        title="Column pairs",
-    )
-
-
 class ModelCreateArgs(JobArgs):
     job_type: JobType = Field(
         default=JobType.JOB_TYPE_MODEL_CREATE,
@@ -398,52 +392,10 @@ class ModelCreateArgs(JobArgs):
         title="Upload IDs",
     )
     target_columns: StrList = Field(default_factory=list)
-    epochs: int = Field(
-        default=25,
-        description="The number of epochs or cycles to initially train this model",
-        title="Training Epochs",
-    )
-    learning_rate: float = Field(
-        description="The learning rate to use as a base starting point, which controls "
-        "how quickly the model is adapted to the problem",
-        title="Learning Rate",
-        default=0.0001,
-    )
-    model_size: str = Field(
-        default="small",
-        description="The size of the model, can be 'small' or 'large'",
-        title="Model Size",
-    )
-    training_budget_credits: Optional[float] = Field(
-        default=None,
-        description="Limit the training to consume only this many credits at most.",
-        title="Budget for training",
-    )
-
-
-class NewNeuralFunctionArgs(ChainedJobArgs):
-    job_type: ChainedJobType = Field(
-        default=ChainedJobType.CHAINED_JOB_TYPE_NNF,
-        frozen=True,
-        description="Create a New Neural Function by training an embedding space, and then training a "
-        "model within that embedding space",
-    )
-    project_id: PydanticObjectId
-    training_credits_budgeted: float
-    embedding_space_create: ESCreateArgs
-    model_create: ModelCreateArgs
-
-
-class NewExplorerArgs(ChainedJobArgs):
-    job_type: ChainedJobType = Field(
-        default=ChainedJobType.CHAINED_JOB_TYPE_NEW_EXPLORER,
-        frozen=True,
-        description="Create an Explorer space by training an embedding space, and then training a "
-        "model within that embedding space for each column",
-    )
-    project_id: PydanticObjectId
-    training_credits_budgeted: float
-    embedding_space_create: ESCreateArgs
+    epochs: Optional[int] = 0
+    learning_rate: Optional[float] = 0
+    model_size: Optional[str] = "small"
+    training_budget_credits: Optional[float] = 0
 
 
 class ModelPredictionArgs(JobArgs):
@@ -544,131 +496,8 @@ class EncodeRecordsArgs(JobArgs):
         description="The ID of the embedding space into which to encode the records",
         title="Embedding Space ID",
     )
-    # We MIGHT want to encode an upload id... but we might not too.
-    # Loading the upload from S3 is too heavy for the fast path
-    # so I am commenting this out for now. Not sure the blast radius of this
-    # breakage.
-    #
-    # upload_id: Optional[PydanticObjectId] = Field(
-    #     description="The ID of the data set to encode into the embedding space",
-    # )
 
     records: Any  # data to encode.
-
-
-class AutoJoinDetectArgs(JobArgs):
-    job_type: JobType = Field(
-        default=JobType.JOB_TYPE_AUTOJOIN_DETECT,
-        frozen=True,
-        description="An AutoDetect Join Tables Job. The JobType should not be changed",
-    )
-    # We can get the project from the embedding_space space
-    project_id: Optional[PydanticObjectId] = Field(
-        default=None,
-        description="The ID of the project in which this autojoin happens, can be derived from embedding space id",
-        title="Project ID",
-    )
-    embedding_space_id: Optional[PydanticObjectId] = Field(
-        default=None,
-        description="The ID of the embedding space on which to do the autojoin operation",
-        title="Embedding Space ID",
-    )
-
-
-class AutoJoinProjectionArgs(JobArgs):
-    job_type: JobType = Field(
-        default=JobType.JOB_TYPE_AUTOJOIN_PROJECTION,
-        frozen=True,
-        description="An AutoDetect Projection Job. The JobType should not be changed",
-    )
-    # We can get the project from the embedding_space space
-    project_id: Optional[PydanticObjectId] = Field(
-        default=None,
-        description="The ID of the project in which this autojoin happens, can be derived from embedding space id",
-        title="Project ID",
-    )
-    embedding_space_id: Optional[PydanticObjectId] = Field(
-        default=None,
-        description="The ID of the embedding space on which to do the autojoin projection",
-        title="Embedding Space ID",
-    )
-
-
-class CreateDBArgs(JobArgs):
-    job_type: JobType = Field(
-        default=JobType.JOB_TYPE_ES_CREATE_DB,
-        frozen=True,
-        description="A Create Database from Embedding Space Job. The JobType should not be changed",
-    )
-    # We can get project id from embedding space id so the first is optional
-    project_id: Optional[PydanticObjectId] = Field(
-        default=None,
-        description="The ID of the project in which this DB is created, can be derived from embedding space id",
-        title="Project ID",
-    )
-    embedding_space_id: Optional[PydanticObjectId] = Field(
-        default=None,
-        description="The ID of the embedding space to use for creating the database",
-        title="Embedding Space ID",
-    )
-    # FIXME: missing
-
-
-class CreateFromDSArgs(JobArgs):
-    job_type: JobType = Field(
-        default=JobType.JOB_TYPE_ES_CREATE_FROM_DS,
-        frozen=True,
-        description="FIXME:A Embedding Space Job. The JobType should not be changed",
-    )
-    # We can get project id from embedding space id so the first is optional
-    project_id: Optional[PydanticObjectId] = Field(
-        default=None,
-        description=" The ID of the project in which FIXME:, can be derived from embedding space id",
-        title="Project ID",
-    )
-    embedding_space_id: Optional[PydanticObjectId] = Field(
-        default=None,
-        description="The ID of the embedding space to use for creating the database",
-        title="Embedding Space ID",
-    )
-
-
-class DBClusterArgs(JobArgs):
-    job_type: JobType = Field(
-        default=JobType.JOB_TYPE_DB_CLUSTER,
-        frozen=True,
-        description="An Cluster Database Job. The JobType should not be changed",
-    )
-    # We can get project id from embedding space id so the first is optional
-    project_id: Optional[PydanticObjectId] = Field(
-        default=None,
-        description=" The ID of the project in which FIXME:, can be derived from embedding space id",
-        title="Project ID",
-    )
-    embedding_space_id: Optional[PydanticObjectId] = Field(
-        default=None,
-        description="The ID of the embedding space to use for FIXME: clustering database",
-        title="Embedding Space ID",
-    )
-
-
-class NNQueryArgs(JobArgs):
-    job_type: JobType = Field(
-        default=JobType.JOB_TYPE_DB_NN_QUERY,
-        frozen=True,
-        description="An Nearest Neighbor Query in Database Job. The JobType should not be changed",
-    )
-    # We can get project id from embedding space id so the first is optional
-    project_id: Optional[PydanticObjectId] = Field(
-        default=None,
-        description=" The ID of the project in which we are operating, can be derived from embedding space id",
-        title="Project ID",
-    )
-    embedding_space_id: Optional[PydanticObjectId] = Field(
-        default=None,
-        description="The ID of the embedding space to use for the query",
-        title="Embedding Space ID",
-    )
 
 
 class TestCaseArgs(JobArgs):

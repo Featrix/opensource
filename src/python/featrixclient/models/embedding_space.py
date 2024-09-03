@@ -106,31 +106,6 @@ class EmbeddingSpaceDeleteResponse(FModel):
     embedding_space: EmbeddingSpace
 
 
-class EmbeddingSpaceDatabaseCreateRequest(FModel):
-    embedding_space_id: PydanticObjectId
-    columns: Optional[List[str]] = None
-
-
-class EmbeddingSpaceDatabaseCreateResponse(FModel):
-    embedding_space_id: PydanticObjectId
-    error: bool
-    message: str
-    database_id: str
-    job_id: str
-
-
-class EmbeddingSpaceDatabaseStatusResponse(FModel):
-    embedding_space_id: PydanticObjectId
-    database_id: str
-    finished: bool
-    error: bool
-    message: str
-    status: Optional[str] = None
-    total: Optional[int] = None
-    step: Optional[int] = None
-    percent: Optional[float] = None
-
-
 class EmbeddingSpaceEncodeRequest(FModel):
     embedding_space_id: PydanticObjectId
     upload_id: PydanticObjectId
@@ -181,12 +156,4 @@ class EmbeddingDistanceRequest(FModel):
 
 
 class EmbeddingDistanceResponse(FModel):
-    pass
-
-
-class EmbeddingSpaceNearestNeighborRequest(FModel):
-    pass
-
-
-class EmbeddingSpaceNearestNeighborResponse(FModel):
     pass
