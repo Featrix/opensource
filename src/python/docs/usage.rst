@@ -27,19 +27,27 @@ You'll also need a Featrix server; you can run the enterprise edition on-site in
 What's Included
 ---------------
 
-The ``featrix-client`` package includes a few key modules:
+The ``featrix-client`` package includes a few key classes:
 
-+-------------------+-----------------------------------------------------------+
-| ``networkclient`` | A `featrix` client object for                             |
-|                   | accessing the Featrix embedding service.                  |
-+-------------------+-----------------------------------------------------------+
-| ``graphics``      | A set of functions for plotting embedding similarity.     |
-|                   | These got squashed when we cleaned up the API but they    |
-|                   | will be back shortly!                                     |
-++------------------+-----------------------------------------------------------+
-| ``utils``         | A set of functions for working with data that we have     |
-|                   | found to be useful.                                       |
-+-------------------+-----------------------------------------------------------+
++------------------------------+-----------------------------------------------------------+
+| ``Featrix``                  | A client object for accessing the Featrix service.        |
++------------------------------+-----------------------------------------------------------+
+| ``FeatrixUpload``            | Represents a data set uploaded to Featrix. This can be a  |
+|                              | dump of a table, a CSV file, etc.                         |
++------------------------------+-----------------------------------------------------------+
+| ``FeatrixProject``           | Represents a Featrix project: upload associations,        |
+|                              | embedding spaces, and neural functions live in a project. |
+|                              | You can get an existing project from the ``Featrix``      |
+|                              | client object's `get_project_by_id()` call.               |
++------------------------------+-----------------------------------------------------------+
+| ``FeatrixEmbeddingSpace``    | Represents a Featrix embedding space.                     |
+|                              | Create with `project.create_embedding_space()`            |
++------------------------------+-----------------------------------------------------------+
+| ``FeatrixNeuralFunction``    | Represents a Featrix neural function.                     |
+|                              | Create with `embedding_space.create_neural_function()`    |
+|                              | Run the function with the `predict()` method on new data. |
++------------------------------+-----------------------------------------------------------+
+
 
 Working with Data
 -----------------
