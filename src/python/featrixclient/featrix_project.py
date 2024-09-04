@@ -296,9 +296,6 @@ class FeatrixProject(Project):
         Retrieve the jobs associated with this project.  If the jobs have already been retrieved, they will be
         returned from the cache unless force is True.
 
-        Arguments:
-            stale_timeout: seconds to allow cache to age before refresh
-
         Returns:
             List of FeatrixJob instances
         """
@@ -306,92 +303,56 @@ class FeatrixProject(Project):
         job_list = ApiInfo.reclass(FeatrixJob, results, fc=self._fc)
         return job_list
 
-    def job(
+    def job_by_id(
         self,
-        job_id: str | PydanticObjectId,
-        stale_timeout: int = settings.stale_timeout,
+        job_id: str | PydanticObjectId
     ) -> FeatrixJob:
         """
         Get a job by its Job id, possibly refreshing the cache if force is True.
 
         Arguments:
             job_id: str - the id of the job to retrieve
-            stale_timeout: seconds to allow cache to age before refresh
 
         Returns:
             FeatrixJob instance
         """
         job_id = str(job_id)
-        if (
-            job_id not in self._jobs_cache
-            or self._jobs_cache_updated is None
-            or (datetime.utcnow() - self._jobs_cache_updated).total_seconds()
-            > stale_timeout
-        ):
-            self.jobs(stale_timeout=-1)
-        if job_id in self._jobs_cache:
-            return self.job_cache[job_id]
+        job_list = self.jobs()
+        for job in job_list:
+            if job.id == job_id:
+                return job
         raise RuntimeError(f"No such job {job_id} in project {self.name} ({self.id})")
 
-    def embedding_spaces(
-        self, stale_timeout: int = settings.stale_timeout
-    ) -> List[FeatrixEmbeddingSpace]:
+    def embedding_spaces(self) -> List[FeatrixEmbeddingSpace]:
         """
         Retrieve the embedding spaces associated with this project.  If the embedding spaces have already been retrieved,
         they will be returned from the cache unless force is True.
 
-        Arguments:
-            stale_timeout: seconds to allow cache to age before refresh
-
         Returns:
             List of FeatrixEmbeddingSpace instances
         """
-        since = None
-        if (
-            self._embedding_spaces_cache_updated is None
-            or (
-                datetime.utcnow() - self._embedding_spaces_cache_updated
-            ).total_seconds()
-            > stale_timeout
-        ):
-            since = self._embedding_spaces_cache_updated or datetime(2024, 1, 1)
+        results = self._fc.api.op("project_get_embedding_spaces", project_id=str(self.id))
+        es_list = ApiInfo.reclass(FeatrixEmbeddingSpace, results, fc=self._fc)
+        return es_list
 
-            self._embedding_spaces_cache_updated = datetime.utcnow()
-            results = self._fc.api.op(
-                "project_get_embedding_spaces", project_id=str(self.id), since=since
-            )
-            es_list = ApiInfo.reclass(FeatrixEmbeddingSpace, results, fc=self._fc)
-            for es in es_list:
-                self._embedding_spaces_cache[str(es.id)] = es
-        return list(self._embedding_spaces_cache.values())
-
-    def embedding_space(
+    def embedding_space_by_id(
         self,
         embedding_space_id: str | PydanticObjectId,
-        stale_timeout: int = settings.stale_timeout,
     ) -> FeatrixEmbeddingSpace:
         """
         Get an embedding space by its id, possibly refreshing the cache if force is True.
 
         Arguments:
             embedding_space_id: str - the id of the embedding space to retrieve
-            stale_timeout: seconds to allow cache to age before refresh
 
         Returns:
             FeatrixEmbeddingSpace instance
         """
-        embedding_space_id = str(embedding_space_id)
-        if (
-            embedding_space_id not in self._embedding_spaces_cache
-            or self._embedding_spaces_cache_updated is None
-            or (
-                datetime.utcnow() - self._embedding_spaces_cache_updated
-            ).total_seconds()
-            > stale_timeout
-        ):
-            self.embedding_spaces(stale_timeout=-1)
-        if embedding_space_id in self._embedding_spaces_cache:
-            return self._embedding_spaces_cache[embedding_space_id]
+        es_list = self.embedding_spaces()
+        for es in es_list:
+            if es.id == str(embedding_space_id):
+                return es
+            
         raise RuntimeError(
             f"No such embedding space {embedding_space_id} in project {self.name} ({self.id})"
         )
@@ -426,7 +387,7 @@ class FeatrixProject(Project):
             model_list += es.neural_functions()
         return model_list
 
-    def find_neural_function(
+    def neural_function_by_id(
         self, 
         ident: str
     ) -> FeatrixNeuralFunction:
@@ -439,38 +400,26 @@ class FeatrixProject(Project):
         Returns:
             FeatrixNeuralFunction instance or None if not found
         """
+        assert ident is not None
+        assert len(str(ident)) > 0
 
-        if (
-            self._jobs_cache_updated is None
-            or (datetime.utcnow() - self._jobs_cache_updated).total_seconds()
-            > stale_timeout
-        ):
-            self.embedding_spaces(stale_timeout=-1)
-            self.neural_functions(stale_timeout=-1)
+        nf_list = self.neural_functions()
+        for nf in nf_list:
+            if nf.id == str(ident):
+                return nf
 
-        for es in self.embedding_spaces(): #.values():
-            for nf in es.neural_functions():
-                if nf.id == ident:
-                    return nf
         raise RuntimeError(f"No such model {ident} in project {self.name} ({self.id})")
 
-    def fields(self, stale_timeout: int = settings.stale_timeout):
+    def fields(self):
         """
-        Retrieve all fields that are in data files associated with this project.  If the cache is stale
-        by way of stale_timeout (default 1 hour), it is refreshed.
+        Retrieve all fields that are in data files associated with this project.
         """
-        if (
-            self._all_fields_cache_updated is None
-            or (datetime.utcnow() - self._all_fields_cache_updated).total_seconds()
-            > stale_timeout
-        ):
-            self._all_fields_cache_updated = datetime.utcnow()
-            results = self._fc.api.op("project_get_fields", project_id=str(self.id))
-            self._all_fields_cache = ApiInfo.reclass(
-                AllFieldsResponse, results, fc=self._fc
-            )
+        results = self._fc.api.op("project_get_fields", project_id=str(self.id))
+        all_fields = ApiInfo.reclass(
+            AllFieldsResponse, results, fc=self._fc
+        )
 
-        return self._all_fields_cache
+        return all_fields
 
     def associate(
         self,

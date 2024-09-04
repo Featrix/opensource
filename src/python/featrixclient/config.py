@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     client_id: Optional[str] = None
     client_secret: Optional[str] = None
 
-    stale_timeout: int = Field(default=10)
+    # stale_timeout: int = Field(default=10)
 
 
 settings = Settings()
