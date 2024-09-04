@@ -59,7 +59,7 @@ class JobIncrementalStatus(FModel):
     epoch_total: Optional[int] = None
     batch_idx: Optional[int] = None
     batch_total: Optional[int] = None
-    current_loss: float = 0.0
+    current_loss: Optional[float] = 0.0
     validation_loss: Optional[float] = None
 
     message: Optional[str] = None

@@ -247,7 +247,6 @@ class FeatrixProject(Project):
         Args:
             project (FeatrixProject | str | None): The project to use; a new project is created if not provided.
             name (str): Name of the embedding space.
-            files (list | None): DataFrames or file paths to upload and associate with the project (optional).
             wait_for_completion (bool): Run synchronously with status updates.
             encoder (dict | None): Optional encoder overrides for the embedding space.
             ignore_cols (list | str | None): Columns to ignore in training (list or comma-separated string).
@@ -262,9 +261,9 @@ class FeatrixProject(Project):
         from .featrix_embedding_space import FeatrixEmbeddingSpace
 
         if self.ready(wait_for_completion=wait_for_completion) is False:
-            raise FeatrixException(
-                "Project not ready for creating an embedding space, data files still being processed or not present."
-            )
+           raise FeatrixException(
+               "Project not ready for creating an embedding space, data files still being processed or not present."
+           )
         es = FeatrixEmbeddingSpace.new_embedding_space(
             fc=self._fc,
             project=self,
