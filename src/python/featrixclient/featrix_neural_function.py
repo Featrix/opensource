@@ -98,6 +98,7 @@ class FeatrixNeuralFunction(Model):
         embedding_space_id: str,
         target_field: str, 
         target_field_type: str,
+        encoder,
         **kwargs) -> ModelCreateArgs:
         """
         Create the arguments for creating a model.  This is a helper function to make it easier to create a
@@ -107,11 +108,14 @@ class FeatrixNeuralFunction(Model):
             project_id=project_id,
             embedding_space_id=embedding_space_id,
             target_columns=[target_field],
+            target_field_type=target_field_type,
+            encoder=encoder
         )
         
         for k, v in kwargs.items():
             if k in ModelCreateArgs.__annotations__:
                 setattr(model_create_args, k, v)
+        
         return model_create_args
 
     @classmethod
@@ -235,7 +239,7 @@ class FeatrixNeuralFunction(Model):
         from .featrix_job import FeatrixJob
         from .featrix_project import FeatrixProject  # noqa forward ref
 
-        project.refresh()
+        project = project.refresh()
         # before_nf_list = project.neural_functions()
 
         name = kwargs.pop("name", f"Predict_{'_'.join(target_field)}")
@@ -252,6 +256,7 @@ class FeatrixNeuralFunction(Model):
             embedding_space.id,
             target_field,
             target_field_type,
+            encoder=encoder,
             **kwargs,
         )
 
@@ -260,19 +265,21 @@ class FeatrixNeuralFunction(Model):
 
         if wait_for_completion:
             job.wait_for_completion(f"Job {job.job_type} (job id={job.id}): ")
-            job.refresh()
-            print("------ job finished ----: ", job)
+            job = job.refresh()
+            # print("------ job finished ----: ", job)
             if job.error:
                 raise FeatrixException(
-                    f"Failed to train neural function {nf}: {job.error_msg}"
+                    f"Failed to train neural function on target field '{target_field}': {job.error_msg}"
                 )
-
-        project.refresh()
-        after_nf_list = project.neural_functions()
-        # print("OUR ES _ID = ", embedding_space.id)
-        for nf in after_nf_list:
-            if str(nf.job_id) == str(job.id):
-                nf.project = project
-                return nf
-
-        raise Exception("Well, something went sideways. Please contact support at hello@featrix.ai")
+            after_nf_list = project.neural_functions()
+            for nf in after_nf_list:
+                if str(nf.job_id) == str(job.id):
+                    nf.project = project
+                    return nf
+            raise FeatrixException(f"We waited for completion for job id={job.id} but did not find the resulting function in the project id={project.id} afterwards. This is not expected.")
+        else:
+            # 4 Sept 2024 MH
+            # Right now, we do not allocate the model_id on the server until the job is done.
+            # Once we change that, we can improve this interface.
+            print(f"Warning: If you do not set wait_for_completion to True, we don't have (currently) a good way to get back info later [you can query job_id = {job.id}]")
+        return None

@@ -68,6 +68,7 @@ from .api_urls import ApiInfo
 from .config import settings
 from .exceptions import FeatrixException
 from .exceptions import FeatrixJobFailure
+from .exceptions import FeatrixNotReadyException
 from .featrix_embedding_space import FeatrixEmbeddingSpace
 from .featrix_neural_function import FeatrixNeuralFunction
 from .featrix_upload import FeatrixUpload
@@ -204,10 +205,12 @@ class FeatrixProject(Project):
         if len(self.associated_uploads) == 0:
             project = self.by_id(self.id, self._fc)
             if len(project.associated_uploads) == 0:
-                raise FeatrixException(
-                    f"Project {self.name} ({self.id}) has no associated uploads/datafiles"
-                )
+                return False
+                # raise FeatrixException(
+                #     f"Project {self.name} ({self.id}) has no associated uploads/datafiles"
+                # )
             return project.ready()
+        
         for ua in self.associated_uploads:
             upload = FeatrixUpload.by_id(ua.upload_id, self._fc)
             if upload.ready_for_training is False:
@@ -253,6 +256,9 @@ class FeatrixProject(Project):
             focus_cols (list | str | None): Columns to focus on in training (list or comma-separated string).
             **kwargs: Additional arguments for `ESCreateArgs`, e.g., `rows=1000`.
 
+        Exceptions:
+            FeatrixNotReadyException: Thrown if the project data files are missing or not finished processing.
+            
         Returns:
             FeatrixEmbeddingSpace: The embedding space and associated training job.
         """
@@ -261,7 +267,7 @@ class FeatrixProject(Project):
         from .featrix_embedding_space import FeatrixEmbeddingSpace
 
         if self.ready(wait_for_completion=wait_for_completion) is False:
-           raise FeatrixException(
+           raise FeatrixNotReadyException(
                "Project not ready for creating an embedding space, data files still being processed or not present."
            )
         es = FeatrixEmbeddingSpace.new_embedding_space(
@@ -505,7 +511,7 @@ class FeatrixProject(Project):
 
     def delete(self):
         """
-        Delete the project from the Featrix server.  This will remove all associated data files, embedding spaces,
+        Delete the project from the Featrix server.  This will remove all associated data files, embedding spaces, neural functions, etc. Proceed with extreme caution.
 
         Returns:
             ProjectDeleteResponse

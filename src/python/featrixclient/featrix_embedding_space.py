@@ -363,7 +363,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
                                                                             column names or a list of strings)
             focus_cols: Optional list of columns to focus on in the training (a string of comma separated
                                                                             column names or a list of strings)
-            **kwargs -- any other fields to ESCreateArgs() such -- can be called as to specify rows for instance):
+            **kwargs -- any other fields to ModelCreateArgs() such -- can be called as to specify rows for instance):
                               create_embedding_space(project, name, credits, files, wait_for_completion, rows=1000)
 
         Returns:

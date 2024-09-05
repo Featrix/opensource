@@ -245,6 +245,28 @@ def test_nf(
                     column_name=sample_by,
                 )
     
+                print("------------------------------------------------------------------------------ create 'bad' project")
+                project = fc.create_project(f"NF smoke test 0 - {uuid.uuid4()}")
+                # do NOT add data
+
+                # try to train an embedding space.
+                from featrixclient.exceptions import FeatrixNotReadyException, FeatrixException
+
+                test_passed = False
+                try:
+                    bad_es = project.create_embedding_space(wait_for_completion=False)
+                except FeatrixNotReadyException:
+                    test_passed = True
+                
+                if not test_passed:
+                    raise Exception("create_embedding_space should have failed on an empty project.")
+                else:
+                    print("PASS")
+
+                if project.ready():
+                    raise Exception("project.ready returned TRUE but should have returned FALSE")
+
+                print("------------------------------------------------------------------------------ create project")
                 project = fc.create_project(f"NF smoke test 1 - {uuid.uuid4()}")
                 upload = fc.upload_file(target_file, associate=project)
                 project = wait_for_project(project)
@@ -252,9 +274,12 @@ def test_nf(
                 # Here we will create/train the embedding, then create the neural.
 
                 print("------------------------------------------------------------------------------ create embedding space")
+                num_epochs = test_idx + 1
+
                 es = project.create_embedding_space(
                     name="ES test", 
-                    wait_for_completion=True
+                    wait_for_completion=True, 
+                    epochs=num_epochs
                 )
 
                 if es.ready():
@@ -262,10 +287,25 @@ def test_nf(
                 else:
                     assert False, "bug in es.ready()"
 
+                assert (es.training_history[0].epochs == num_epochs), "num_epochs doesn't match the ES!"
+
+                print("------------------------------------------------------------------------------ create neural function no_waiting")
+                not_ready_nf = es.create_neural_function(
+                    target_field=target_column, 
+                    wait_for_completion=False,
+                    epochs=num_epochs
+                )
+
+                # Right now, not_ready_nf is None
+                assert not_ready_nf is None, "We will improve this later."
+                # was_ready = not_ready_nf.ready()
+                # assert was_ready == False, f"was_ready should be False but it is {was_ready}"
+
                 print("------------------------------------------------------------------------------ create neural function")
                 nf = es.create_neural_function(
                     target_field=target_column, 
-                    wait_for_completion=True
+                    wait_for_completion=True,
+                    epochs=num_epochs
                 )
 
                 if nf.ready():
@@ -280,11 +320,20 @@ def test_nf(
                 print("trained list = ", len(nfList))
                 # print("nf = ", nf)
 
+                
                 print("------------------------------------------------------------------------------ negative create neural function")
-                broken_nf = es.create_neural_function(
-                    target_field="WRONG_FIELD_NOT_IN_DATA", 
-                    wait_for_completion=True
-                )
+                had_error = False
+                try:
+                    broken_nf = es.create_neural_function(
+                        target_field="WRONG_FIELD_NOT_IN_DATA", 
+                        wait_for_completion=True
+                    )
+                except FeatrixException:
+                    print("got the exception--good")
+                    had_error = True
+                
+                if not had_error:
+                    raise Exception("Expected an error when training on a bad field.")
 
                 if "query" in test_case:
                     print("------------------------------------------------------------------------------ prediction test")

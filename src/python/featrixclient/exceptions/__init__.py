@@ -61,6 +61,10 @@ from pydantic import ValidationError
 class FeatrixException(Exception):
     pass
 
+class FeatrixNotReadyException(Exception):
+    pass
+
+
 
 class FeatrixConfigException(FeatrixException):
     pass
@@ -79,10 +83,6 @@ class FeatrixPermissionDenied(FeatrixException):
 
 
 class FeatrixDuplicateApiKeyLabel(FeatrixException):
-    pass
-
-
-class FeatrixNoGuestOrganization(FeatrixException):
     pass
 
 
