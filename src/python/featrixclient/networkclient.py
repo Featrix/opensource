@@ -157,6 +157,7 @@ class Featrix:
             List[FeatrixProject]: A list of projects.
         """
         projects = FeatrixProject.all(self)
+        self._projects = {}
         for project in projects:
             if self.debug:
                 print(f"Found project: {project.model_dump_json(indent=4)}")

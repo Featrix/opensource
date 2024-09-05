@@ -246,7 +246,8 @@ def test_nf(
                 )
     
                 print("------------------------------------------------------------------------------ create 'bad' project")
-                project = fc.create_project(f"NF smoke test 0 - {uuid.uuid4()}")
+                bad_project_name = f"NF smoke test 0 - {uuid.uuid4()}"
+                project = fc.create_project(bad_project_name)
                 # do NOT add data
 
                 # try to train an embedding space.
@@ -265,6 +266,27 @@ def test_nf(
 
                 if project.ready():
                     raise Exception("project.ready returned TRUE but should have returned FALSE")
+
+                print("------------------------------------------------------------------------------ delete project")
+                print("project = ", project)
+                print("PASS")
+
+                existing_p1 = fc.get_project_by_name(bad_project_name)
+                print("existing_p1 = ", existing_p1)
+                assert existing_p1 is not None
+                project.delete()
+                print("PASS")
+
+                existing_p2 = fc.get_project_by_name(bad_project_name)
+                print("existing_p2 = ", existing_p2)
+                assert existing_p2 is None
+                print("PASS")
+
+                project = fc.create_project(bad_project_name)
+                print("project = ", project)
+                assert project is not None
+                print("PASS")
+
 
                 print("------------------------------------------------------------------------------ create project")
                 project = fc.create_project(f"NF smoke test 1 - {uuid.uuid4()}")
