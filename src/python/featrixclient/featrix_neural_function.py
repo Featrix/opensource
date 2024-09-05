@@ -63,6 +63,7 @@ from typing import Optional
 from typing import Tuple
 
 import bson
+import pandas as pd
 from pydantic import PrivateAttr
 
 from .api_urls import ApiInfo
@@ -197,7 +198,7 @@ class FeatrixNeuralFunction(Model):
             jobs.append(job)
         return jobs
 
-    def predict(self, query: Dict | List[Dict]) -> FeatrixPrediction:
+    def predict(self, query: Dict | List[Dict] | pd.DataFrame) -> FeatrixPrediction:
         """
         Predict a probability distribution on a given model in a embedding space.
 
@@ -205,7 +206,7 @@ class FeatrixNeuralFunction(Model):
 
         Parameters
         ----------
-        query : dict or [dict]
+        query : dict, [dict], or pd.DataFrame
             Either a single parameter or a list of parameters.
             { col1: <value> }, { col2: <value> }
 
@@ -216,6 +217,8 @@ class FeatrixNeuralFunction(Model):
         """
         if isinstance(query, dict):
             query = [query]
+        if isinstance(query, pd.DataFrame):
+            query = query.to_dict(orient="records")
         predict_args = ModelFastPredictionArgs(model_id=str(self.id), query=query)
         pred = self._fc.api.op("models_create_prediction", predict_args)
         fp = ApiInfo.reclass(FeatrixPrediction, pred, fc=self._fc)
