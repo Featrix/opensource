@@ -76,6 +76,7 @@ from .models import EmbeddingSpace
 from .models import ESCreateArgs
 from .models import JobType
 from .models import PydanticObjectId
+from .models import TrainingState
 from .utils import display_message
 from .utils import featrix_wrap_pd_read_csv
 
@@ -146,6 +147,9 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
 
     def refresh(self):
         return self.by_id(self.id, self.fc)
+
+    def ready(self):
+        return self.training_state == TrainingState.COMPLETED
 
     @staticmethod
     def create_args(project_id: str, name: str, **kwargs) -> ESCreateArgs:
@@ -232,7 +236,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         es = cls.by_id(jobs[-1].embedding_space_id, fc)
         if wait_for_completion:
             for job in jobs:
-                job.wait_for_completion(f"Job {job.job_type} (id={job.id}): ")
+                job.wait_for_completion(f"Job {job.job_type} (job id={job.id}): ")
                 if job.error:
                     raise FeatrixException(
                         f"Failed to train embedding space {job.embedding_space_id}: {job.error_msg}"
@@ -282,7 +286,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         return ApiInfo.reclass(FeatrixJob, results, fc=self._fc)
 
 
-    def neural_functions(self) -> List[FeatrixNeuralFunction]:
+    def neural_functions(self, lambda_filter=None) -> List[FeatrixNeuralFunction]:
         """
         Retrieve all neural functions for this embedding space.
         """
@@ -295,10 +299,16 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
             # FIXME: The model isn't getting serialized correctly
             if hasattr(model, "_id"):
                 model.id = getattr(model, "_id")
+        if lambda_filter is not None:
+            result_list = []
+            for model in models:
+                if lambda_filter(model):
+                    result_list.append(model)
+            models = result_list
         return models #list(self._models_cache.values())
 
 
-    def neural_function(
+    def neural_function_by_id(
         self,
         model_id: str | PydanticObjectId
     ) -> FeatrixNeuralFunction:
@@ -396,10 +406,10 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         You can use the resulting vector embeddings to train your own models
         outside of Featrix, to cluster data items with the relationships that
         created the embedding transformation on the training data--this is often
-        extremely powerful!
+        extremely powerful.
 
         You can also use these embeddings to chain together composite Featrix
-        neural functions!
+        neural functions.
         """
         from featrixclient.models.job_requests import EncodeRecordsArgs
 

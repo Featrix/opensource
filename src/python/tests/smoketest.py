@@ -257,15 +257,37 @@ def test_nf(
                     wait_for_completion=True
                 )
 
+                if es.ready():
+                    print("The embedding space is ready, as it should be.")
+                else:
+                    assert False, "bug in es.ready()"
+
                 print("------------------------------------------------------------------------------ create neural function")
                 nf = es.create_neural_function(
                     target_field=target_column, 
                     wait_for_completion=True
                 )
 
+                if nf.ready():
+                    print("The neural function is ready, as it should be.")
+                else:
+                    assert False, "bug in nf.ready()"
+                # FIXME: need negative tests here too??
+
+                print("------------------------------------------------------------------------------ test lambda filter")
+                # test lambda filters.
+                nfList = es.neural_functions(lambda x: x.training_state == "trained")
+                print("trained list = ", len(nfList))
                 # print("nf = ", nf)
 
+                print("------------------------------------------------------------------------------ negative create neural function")
+                broken_nf = es.create_neural_function(
+                    target_field="WRONG_FIELD_NOT_IN_DATA", 
+                    wait_for_completion=True
+                )
+
                 if "query" in test_case:
+                    print("------------------------------------------------------------------------------ prediction test")
                     nf.predict(test_case["query"])
 
                     print(

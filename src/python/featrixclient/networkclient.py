@@ -381,14 +381,14 @@ class Featrix:
             if in_project:
                 if str(project_entry.id) == str(in_project):
                     found_in_project = True
-                    model = project_entry.find_neural_function(neural_function_id)
+                    model = project_entry.neural_function_by_id(neural_function_id)
                     if model:
                         return model
             else:
                 # We try each project if no in_project was specified.
                 try:
                     # print(f"trying project {project_entry.id}...")
-                    model = project_entry.find_neural_function(neural_function_id)
+                    model = project_entry.neural_function_by_id(neural_function_id)
                     if model:
                         return model
                 except RuntimeError:

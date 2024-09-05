@@ -75,6 +75,7 @@ from .models import Model
 from .models import ModelCreateArgs
 from .models import ModelFastPredictionArgs
 from .models import PydanticObjectId
+from .models import TrainingState
 
 
 class FeatrixNeuralFunction(Model):
@@ -90,8 +91,6 @@ class FeatrixNeuralFunction(Model):
 
     _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
-    _predictions_cache: Optional[Any] = PrivateAttr(default_factory=dict)
-    _predictions_cache_updated: Optional[datetime] = PrivateAttr(default=None)
 
     @staticmethod
     def create_args(
@@ -167,6 +166,9 @@ class FeatrixNeuralFunction(Model):
     def refresh(self):
         return self.by_id(self.id, self.fc)
 
+    def ready(self):
+        return self.training_state == TrainingState.COMPLETED
+
     def get_jobs(self, active: bool = True, training: bool = True) -> List[FeatrixJob]:
         """
         Return a list of jobs associated with this model.
@@ -213,13 +215,6 @@ class FeatrixNeuralFunction(Model):
         predict_args = ModelFastPredictionArgs(model_id=str(self.id), query=query)
         pred = self._fc.api.op("models_create_prediction", predict_args)
         fp = ApiInfo.reclass(FeatrixPrediction, pred, fc=self._fc)
-        self._predictions_cache[fp.id] = fp
-        if self._fc.debug:
-            print(f"Prediction {fp.id}: {fp.query} -> {fp.result}")
-            print(
-                f"Prediction timing: Overall {fp.debug_info.get('api_time', -1)} "
-                f"Query {fp.debug_info.get('prediction_time', -1)}"
-            )
         return fp.result
     
     @classmethod
@@ -264,8 +259,9 @@ class FeatrixNeuralFunction(Model):
         job = FeatrixJob.from_job_dispatch(dispatch, fc)
 
         if wait_for_completion:
-            job.wait_for_completion(f"Job {job.job_type} (id={job.id}): ")
+            job.wait_for_completion(f"Job {job.job_type} (job id={job.id}): ")
             job.refresh()
+            print("------ job finished ----: ", job)
             if job.error:
                 raise FeatrixException(
                     f"Failed to train neural function {nf}: {job.error_msg}"
