@@ -236,7 +236,7 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         es = cls.by_id(jobs[-1].embedding_space_id, fc)
         if wait_for_completion:
             for job in jobs:
-                job.wait_for_completion(f"Job {job.job_type} (job id={job.id}): ")
+                job.wait_for_completion(f"Job {job.job_type} (job id={job.id}):")
                 if job.error:
                     raise FeatrixException(
                         f"Failed to train embedding space {job.embedding_space_id}: {job.error_msg}"

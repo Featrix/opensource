@@ -28,7 +28,13 @@
       "name": "animals.csv",
       "sample_size": 1000,
       "sample_by": "Animal",
-      "target": "Animal"
+      "target": "Animal",
+      "query": [
+        { "weight": 23, "height": 20 },
+        { "weight": 35, "height": 30 },
+        { "weight": 45, "height": 40 },
+        { "weight": 10, "height": 20 }
+      ]
     },
     {
       "name": "animals.csv",

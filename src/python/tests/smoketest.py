@@ -296,7 +296,7 @@ def test_nf(
                 # Here we will create/train the embedding, then create the neural.
 
                 print("------------------------------------------------------------------------------ create embedding space")
-                num_epochs = test_idx + 1
+                num_epochs = 50 #20 + test_idx + 1
 
                 es = project.create_embedding_space(
                     name="ES test", 
@@ -358,14 +358,22 @@ def test_nf(
                     raise Exception("Expected an error when training on a bad field.")
 
                 if "query" in test_case:
+                    query = test_case["query"]
                     print("------------------------------------------------------------------------------ prediction test")
-                    nf.predict(test_case["query"])
+                    result = nf.predict(query)
+                    print(result)
+                    assert len(result) == len(query)
+                
+                    print("------------------------------------------------------------------------------ prediction test [dataframe]")
 
-                    print(
-                        f"......created nf {nf.name} and ran prediction in "
-                        f"{(datetime.utcnow() - start).total_seconds()} secs"
-                    )
+                    df_test = pd.DataFrame(query)
+                    print(df_test)
 
+                    result2 = nf.predict(df_test)
+                    assert len(result2) == len(query)
+                else:
+                    print("NO QUERY!")
+                
                 uploads_to_delete.append(project)
                 projects_to_delete.append(upload)
             except Exception as e:  # noqa

@@ -267,7 +267,7 @@ class FeatrixNeuralFunction(Model):
         job = FeatrixJob.from_job_dispatch(dispatch, fc)
 
         if wait_for_completion:
-            job.wait_for_completion(f"Job {job.job_type} (job id={job.id}): ")
+            job.wait_for_completion(f"Job {job.job_type} (job id={job.id}):")
             job = job.refresh()
             # print("------ job finished ----: ", job)
             if job.error:
