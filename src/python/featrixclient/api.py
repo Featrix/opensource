@@ -126,19 +126,17 @@ class FeatrixApi:
         url="https://app.featrix.com",
         client_id=None,
         client_secret=None,
-        key_file: Optional[Path | str] = None,
         allow_unencrypted_http=False,
         debug: bool = False,
     ):
         self.debug = debug
         self.client = featrix_client
-        self.client_id = client_id or settings.client_id
-        self.client_secret = client_secret or settings.client_secret
+        self.client_id = client_id
+        self.client_secret = client_secret
 
         self.local_only = False
         self._queue_errors = []
         self._cached_hostname = None
-        self.key_file = Path(key_file).expanduser() if key_file else None
 
         self._current_bearer_token = None
         self._current_bearer_token_expiration = None
@@ -146,7 +144,7 @@ class FeatrixApi:
         self.url = self._validate_url(url, allow_unencrypted_http)
         # Initialize authentication
         self._api_key_init(
-            client_id, client_secret, Path(key_file) if key_file else None
+            client_id, client_secret
         )
         if self.debug:
             print(f"Using base url {self.url}")
@@ -164,27 +162,14 @@ class FeatrixApi:
         url: str = "https://app.featrix.com",
         client_id: Optional[str] = None,
         client_secret: Optional[str] = None,
-        key_file: Optional[Path] = None,
         allow_unencrypted_http: bool = False,
         debug: bool = False,
     ):
-        if cls.current_instance:
-            # FIXME: we want to resolve the client_id and client_secret - if they changed, they want a new
-            # FIXME: instance with different creds.
-            client_id, client_secret = cls.ensure_key_file(
-                client_id, client_secret, key_file
-            )
-            if (
-                client_id == cls.current_instance.client_id
-                and client_secret == cls.current_instance.client_secret
-            ):
-                return cls.current_instance
         cls.current_instance = cls(
             featrix_client,
             url=url,
             client_id=client_id,
             client_secret=client_secret,
-            key_file=key_file,
             allow_unencrypted_http=allow_unencrypted_http,
         )
         return cls.current_instance
@@ -318,10 +303,9 @@ class FeatrixApi:
     def log_activity(self):
         pass
 
-    def _api_key_init(self, client_id: str, client_secret: str, key_file: Path):
-        self.client_id, self.client_secret = self.ensure_key_file(
-            client_id, client_secret, key_file
-        )
+    def _api_key_init(self, client_id: str, client_secret: str):
+        self.client_id = client_id
+        self.client_secret = client_secret
         if self._current_bearer_token:
             return
         self._generate_bearer_token()
@@ -333,15 +317,17 @@ class FeatrixApi:
 
     def _generate_bearer_token(self):
         headers = self._featrix_headers(bearer_generate=True)
-        response = requests.post(
-            f"{self.url}/mosaic/keyauth/jwt",
-            headers=headers,
-            data=json.dumps(
+
+        payload = json.dumps(
                 {
                     "client_id": self.client_id,
                     "client_secret": self.client_secret,
-                }
-            ),
+                })
+
+        response = requests.post(
+            f"{self.url}/mosaic/keyauth/jwt",
+            headers=headers,
+            data=payload,
         )
 
         if response.status_code == 200:
@@ -352,10 +338,6 @@ class FeatrixApi:
             self._current_bearer_token_expiration = datetime.fromisoformat(
                 body["expiration"]
             )
-            if self.client_id == "guest":
-                self.client_id = body[0].get("client_id")
-                self.client_secret = body[0].get("client_secret")
-                self._save_key_file()
         else:
             raise FeatrixBadApiKeyError(
                 f"Failed to create authorization token from API Key: {response.status_code}. "
@@ -372,86 +354,6 @@ class FeatrixApi:
         if header.startswith("Bearer"):
             token = header.replace("Bearer ", "").strip()
             self._current_bearer_token = token
-        return
-
-    @staticmethod
-    def extract_keys_from_environment(
-        client_id: str | None, client_secret: str | None
-    ) -> Tuple[str, str]:
-        if not client_id:
-            client_id = os.environ.get("FEATRIX_CLIENT_ID")
-        if not client_secret:
-            client_secret = os.environ.get("FEATRIX_CLIENT_SECRET")
-        return client_id, client_secret
-
-    @staticmethod
-    def parse_key_file(key_file: Path) -> Tuple[str | None, str | None]:
-        client_id = None
-        client_secret = None
-        if key_file is None or not key_file.exists():
-            return None, None
-        for line in key_file.read_text().splitlines():
-            tag, _, key_value = line.partition("=")
-            if len(key_value):
-                if "FEATRIX_CLIENT_ID" in tag.upper():
-                    client_id = key_value.strip()
-                elif "FEATRIX_CLIENT_SECRET" in tag.upper():
-                    client_secret = key_value.strip()
-        return client_id, client_secret
-
-    @staticmethod
-    def ensure_key_file(
-        client_id: str, client_secret: str, key_file: Path | None
-    ) -> Tuple[str, str]:
-        """
-        If the user did not pass in a client id/secret, we look in the environment.  If it is missing from
-        the environment, we look in the key file.  The precedence is init params, environment, file.  We
-        do only use a pair in both cases so if the user passes in the id, but we find a pair in the file,
-        we use both values from the file.
-
-        If no values are provided, we try to use guest access but if only one value shows up, we error out.
-
-        Arguments:
-            client_id(str): the client id portion of your api key
-            client_secret(str): the client secret portion of your api key
-            key_file: optional Path() to key file
-        """
-        client_id, client_secret = FeatrixApi.extract_keys_from_environment(
-            client_id, client_secret
-        )
-        if None in [client_id, client_secret]:
-            client_id, client_secret = FeatrixApi.parse_key_file(key_file)
-
-        # if client_id is None and client_secret is None:
-        #     self._register_guest()
-
-        if None in [client_id, client_secret]:
-            raise FeatrixNoApiKeyError(
-                "You provided only part of an API Key pair. If you want to use the guest capabilities "
-                "make sure you don't have FEATRIX_CLIENT_ID or FEATRIX_CLIENT_SECRET in your environment "
-                "and that you don't have a ~/.featrix.key file in place"
-            )
-        settings.client_id = client_id
-        settings.client_secret = client_secret
-        return client_id, client_secret
-
-    def _save_key_file(self):
-        """
-        Save the guest key to a file, so we can reuse it if the key file doesn't exist.
-        """
-        if None in [self.client_id, self.client_secret] or "guest" in [
-            self.client_id,
-            self.client_secret,
-        ]:
-            return
-        if self.key_file is None:
-            return
-        if not self.key_file.exists():
-            with self.key_file.open("w") as _file:
-                _file.write(
-                    f"FEATRIX_CLIENT_ID={self.client_id}\n"
-                    f"FEATRIX_CLIENT_SECRET={self.client_secret}\n"
-                )
         return
 
     def _featrix_headers(
@@ -490,7 +392,7 @@ class FeatrixApi:
             if self._current_bearer_token is None or (
                 self._current_bearer_token_expiration
                 and self._current_bearer_token_expiration < datetime.now()
-            ):
+            ):  
                 self._generate_bearer_token()
             if self._current_bearer_token is None:
                 raise FeatrixBadApiKeyError(

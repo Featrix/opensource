@@ -92,6 +92,7 @@ class FeatrixProject(Project):
     The `.ready()` method checks if the project is ready for model creation/training, indicating if associated data files have been processed. If `wait_for_completion=True`, it will block with status messages until all files are ready.
     """
 
+    _trace: bool = False
 
     _fc: Optional[Any] = PrivateAttr(default=None)
     """Reference to the Featrix class  that retrieved or created this project, used for API calls/credentials"""
@@ -190,6 +191,11 @@ class FeatrixProject(Project):
             cls, fc.api.op("project_get", project_id=project_id), fc=fc
         )
 
+    def trace(self, s):
+        if self._trace:
+            print("DEBUG TRACE:", s)
+        return
+
     def ready(self, wait_for_completion: bool = False) -> bool:
         """
         Check to see if all of the data files that are contained in this project are ready to be used for training.
@@ -200,28 +206,33 @@ class FeatrixProject(Project):
         Returns:
             bool - True if all data files are ready for training, False otherwise
         """
+        self.trace(f"project.ready(self.id={self.id}, wait_for_completion={wait_for_completion}): entered.")
         # print(f"Called project.ready({wait_for_completion})")
         not_ready = []
         if len(self.associated_uploads) == 0:
+            self.trace("ready: no associated uploads.")
             project = self.by_id(self.id, self._fc)
             if len(project.associated_uploads) == 0:
+                self.trace("ready: refreshed and still no associated uploads.")
                 return False
-                # raise FeatrixException(
-                #     f"Project {self.name} ({self.id}) has no associated uploads/datafiles"
-                # )
-            return project.ready()
+            return project.ready()      # looks like an infinite loop--but it's not.
         
+        self.trace(f"ready: found {len(self.associated_uploads)}.")
         for ua in self.associated_uploads:
             upload = FeatrixUpload.by_id(ua.upload_id, self._fc)
             if upload.ready_for_training is False:
                 not_ready.append(upload)
         # print(f"Initially the not ready count is {len(not_ready)}")
+
+        self.trace(f"ready: found {len(not_ready)} uploads that are not ready.")
         if len(not_ready) == 0:
             return True
         elif wait_for_completion is False:
+            self.trace(f"ready: returning False because wait_for_completion is False.")
             # print("No waiting -- returning false")
             return False
         for up in not_ready:
+            # up = up.by_id(up.id, self._fc)
             while up.ready_for_training is False:
                 display_message(
                     f"Waiting for upload {up.filename} to be ready for training"

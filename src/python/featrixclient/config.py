@@ -63,18 +63,11 @@ class Settings(BaseSettings):
     """
     Settings for the Featrix client.
     """
-
     model_config = SettingsConfigDict(
         extra="allow",
         # Things in .env's or your environment should be prefixed with FEATRIX_,
         # but this is stripped for the actual key name in code.
         env_prefix="FEATRIX_",
     )
-    # The API key for the Featrix client
-    client_id: Optional[str] = None
-    client_secret: Optional[str] = None
-
-    # stale_timeout: int = Field(default=10)
-
 
 settings = Settings()

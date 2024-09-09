@@ -78,8 +78,6 @@ __version__ = f"{version}: published at {publish_time}"
 
 logger = logging.getLogger("featrix-client")
 
-KEY_FILE_LOCATION = Path("~/.featrix.key").expanduser()
-
 MAX_RETRIES = 10
 MAX_TIMEOUT_RETRIES = 20
 
@@ -97,20 +95,14 @@ class Featrix:
         url: str = "https://app.featrix.com",
         client_id: Optional[str] = None,
         client_secret: Optional[str] = None,
-        key_file: Path | str = KEY_FILE_LOCATION,
         allow_unencrypted_http: bool = False,
     ):
         """
         Create a Featrix client object.
 
-        This requires authentication using API Keys (client ID and secret) from the Featrix UI at https://app.featrix.com. The credentials can be provided in one of three ways:
-
-        1) As `client_id` and `client_secret` arguments.
-        2) Set in the environment variables `FEATRIX_CLIENT_ID` and `FEATRIX_CLIENT_SECRET`.
-        3) Stored in `${HOME}/.featrix.key` (or a specified file via `key_file`), with the format:
-
-        FEATRIX_CLIENT_ID=xxxxxxxxxx
-        FEATRIX_CLIENT_SECRET=xxxxxxxxxx
+        This requires authentication using API Keys (client ID and secret) from the Featrix UI at https://app.featrix.com. 
+        
+        The credentials are provided as `client_id` and `client_secret` arguments.
 
         To generate an API Key, register and log in at https://app.featrix.com/. Under your Profile menu, select "Manage API Keys."
 
@@ -118,7 +110,6 @@ class Featrix:
             url (str): URL of the Featrix server (default: https://app.featrix.com/).
             client_id (str | None): API Key client ID.
             client_secret (str | None): API Key client secret.
-            key_file (str | Path | None): File containing API Key credentials.
             allow_unencrypted_http (bool): Allow non-HTTPS connections (for development).
 
         Returns:
@@ -134,7 +125,6 @@ class Featrix:
             url=url,
             client_id=client_id,
             client_secret=client_secret,
-            key_file=key_file,
             allow_unencrypted_http=allow_unencrypted_http,
             debug=self.debug,
         )
@@ -435,7 +425,6 @@ def new_client(
     url="https://app.featrix.com",
     client_id=None,
     client_secret=None,
-    key_file=KEY_FILE_LOCATION,
     allow_unencrypted_http: bool = False,
 ):
     """
@@ -450,7 +439,6 @@ def new_client(
         url=url,
         client_id=client_id,
         client_secret=client_secret,
-        key_file=key_file,
         allow_unencrypted_http=allow_unencrypted_http,
     )
 
@@ -476,6 +464,5 @@ if __name__ == "__main__":
         url=args.url,
         client_id=args.client_id,
         client_secret=args.client_secret,
-        key_file=args.key_file,
         allow_unencrypted_http=args.allow_http,
     )

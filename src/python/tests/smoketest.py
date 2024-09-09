@@ -110,6 +110,8 @@ def get_client(featrixhost_env):
 
     fc = fc.networkclient.new_client(
         target_api_server,
+        client_id=client_id,
+        client_secret=client_secret,
         allow_unencrypted_http=allow_unencrypted_http,  # DEBUG
     )
     return fc
