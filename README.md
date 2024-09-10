@@ -10,7 +10,7 @@ Featrix is a data gateway to create ML models for structured data with no data p
 
 1. Create an account at [app.featrix.com](https://app.featrix.com/)
 2. Load your baseline training data into a Featrix project.
-3. Train an “embedding space” on that data. This transforms the original data into vectors that you can leverage for models or querying.
+3. Train an “embedding space” on that data. The embedding space is a trained neural network that creates vector embeddings from data that is passed in a format like your original data.
 4. At this point, you can cluster the embeddings or query for nearest neighbors with no further work.
 5. You can also train a downstream prediction model for a target column. The target column can be in the original data, or it can be something specific to the model itself.
 6. Then you can run the model. The model can be presented with partial records and it returns values for the target.
