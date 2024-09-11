@@ -1,0 +1,210 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Featrix API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/neural/models/prediction": {
+      "post": {
+        "tags": ["Models"],
+        "summary": "Fast Predict",
+        "description": "This is the fast prediction path -- so there are things to watch here:\n    * The session will have org, user, and model in it -- these are getting the benefit of caching, see\n      featrix.utils.cache -- but know that user/org are cached in redis while model is cached locally\n      for now.\n    * The db objects we create (JobMeta and Prediction) are not saved until after we return the prediction\n      to the user\nArgs:\n    background_tasks:\n    data:\n    fs:\n\nReturns:",
+        "operationId": "fast_predict_neural_models_prediction_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelFastPredictionArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/featrix__models__db__prediction__Prediction"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ModelFastPredictionArgs": {
+        "properties": {
+          "job_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/JobType"
+              }
+            ],
+            "description": "A Prediction on Model Job. The JobType should not be changed",
+            "default": "model-prediction"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "example": "5eb7cf5a86d9755df3a6c593"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Space ID",
+            "description": "The ID of the model to use for the prediction"
+          },
+          "query": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Queries",
+            "description": "A list of queries to perform, each query is a dictionary with the column name as the key."
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": ["model_id", "query"],
+        "title": "ModelFastPredictionArgs",
+        "description": "This supports doing fast predictions -- it bypasses the requiring us to read in the embedding space,\nand project... This probably replaces the above arg but for now we made a separate one"
+      },
+      "featrix__models__db__prediction__Prediction": {
+        "properties": {
+          "_id": {
+            "type": "string",
+            "title": " Id",
+            "example": "5eb7cf5a86d9755df3a6c593"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string",
+                "example": "5eb7cf5a86d9755df3a6c593"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Created By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "organization_id": {
+            "type": "string",
+            "title": "Organization Id",
+            "example": "5eb7cf5a86d9755df3a6c593"
+          },
+          "project_id": {
+            "type": "string",
+            "title": "Project Id",
+            "example": "5eb7cf5a86d9755df3a6c593"
+          },
+          "embedding_space_id": {
+            "type": "string",
+            "title": "Embedding Space Id",
+            "example": "5eb7cf5a86d9755df3a6c593"
+          },
+          "model_id": {
+            "type": "string",
+            "title": "Model Id",
+            "example": "5eb7cf5a86d9755df3a6c593"
+          },
+          "pathname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pathname"
+          },
+          "query": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Query"
+          },
+          "debug_info": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Debug Info"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_id",
+          "project_id",
+          "embedding_space_id",
+          "model_id"
+        ],
+        "title": "Prediction"
+      }
+    }
+  }
+}
