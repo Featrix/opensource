@@ -72,6 +72,8 @@ from typing import Tuple
 
 import requests
 from pydantic import BaseModel
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from .api_urls import ApiInfo
 from .config import settings
@@ -88,6 +90,19 @@ from .models import ModelPredictionArgs
 from .models import TrainMoreArgs
 
 logger = logging.getLogger(__name__)
+
+retry_strategy = Retry(
+    total=5,  # Total number of retries
+    status_forcelist=[429, 500, 502, 503, 504],  # Status codes to retry on
+    #method_whitelist=["HEAD", "GET", "OPTIONS", "POST"],  # HTTP methods to retry on
+    backoff_factor=5,  # Time to wait between retries, exponential backoff
+    raise_on_status=False,
+)
+
+http_adapter = HTTPAdapter(max_retries=retry_strategy)
+http = requests.Session()
+http.mount("http://", http_adapter)
+http.mount("https://", http_adapter)
 
 
 class FeatrixApi:
@@ -231,8 +246,13 @@ class FeatrixApi:
         headers: Dict,
         args: Optional[Dict],
         files: Optional[Dict],
-        retries: int = 3,
+        retries: int = 10
     ):
+        if retries < 0:
+            raise FeatrixConnectionError(
+                url,
+                f"No more retries: but we should have returned an error before now",
+            )
         try:
             # print(f"OP: {verb}: {url} args {args}")
             if isinstance(args, BaseModel):
@@ -243,7 +263,7 @@ class FeatrixApi:
                     f"Issuing request {verb}:{url} -- json={args} files={'yes' if files else None} "
                     f"headers={list(headers.keys())}"
                 )
-            response = requests.request(
+            response = http.request(
                 verb, url, headers=headers, json=args, files=files
             )
             if self.debug:
@@ -279,6 +299,12 @@ class FeatrixApi:
             elif response.status_code == HTTPStatus.BAD_REQUEST:
                 err_text = self._parse_html_crazy(response.text)  # ??
                 raise FeatrixException(f"Bad request: {err_text}")
+            elif response.status_code in [429, 500, 502, 503, 504]:
+                retries -= 1
+                warnings.warn(f"Service not available, retrying (will retry {retries} times")
+                response = None
+                import time
+                time.sleep(5)
             else:
                 err_text = self.error_message(response) or str(response.status_code)
                 raise FeatrixException(f"Error with request: {err_text}")
