@@ -375,7 +375,26 @@ def test_nf(
                     assert len(result2) == len(query)
                 else:
                     print("NO QUERY!")
-                
+
+                print("------------------------------------------------------------------------------ create embedding space encoder override")
+                num_epochs = 1 #20 + test_idx + 1
+
+                es_encoder_override = project.create_embedding_space(
+                    name="ES test encoder override", 
+                    wait_for_completion=True, 
+                    epochs=num_epochs
+                )
+
+                if es.ready():
+                    print("The embedding space is ready, as it should be.")
+                else:
+                    assert False, "bug in es.ready()"
+
+                assert (es.training_history[0].epochs == num_epochs), "num_epochs doesn't match the ES!"
+
+
+
+
                 uploads_to_delete.append(project)
                 projects_to_delete.append(upload)
             except Exception as e:  # noqa
