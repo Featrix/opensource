@@ -61,213 +61,261 @@ using System.Threading.Tasks;
 using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
+using System.ComponentModel.DataAnnotations;
+using System.Net;
 
-namespace FeatrixExample
+namespace FeatrixExample;
+
+public class FeatrixConnectionError : Exception
 {
-    public class FeatrixConnectionError : Exception
-    {
-        public FeatrixConnectionError(string url, string message)
-            : base($"Connection error for URL {url}: __{message}__") { }
+    public FeatrixConnectionError(string url, string message)
+        : base($"Connection error for URL {url}: __{message}__") { }
+    public FeatrixConnectionError(string url, string message, Exception inner) 
+        : base($"Connection error for URL {url}: __{message}__", inner) {}
+}
+
+public class FeatrixBadApiKeyError : Exception
+{
+    public FeatrixBadApiKeyError(string message) : base(message) { }
+}
+
+internal class Requires {
+    public static void NotDefaultOrEmptyOrWhitepsace(string name, string v) {
+        if(string.IsNullOrWhiteSpace(v))
+            throw new ArgumentException(name + " is either null, emtpy, or comprised entirely of whitespace");
+    }
+}
+
+internal class FeatrixCaller {
+    private const string DEFAULT_URL = "https://app.featrix.com";
+    private string _clientId;
+    private string _clientSecret;
+    private bool _debug = false;
+    private bool _hasInit = false;
+    private string _sourceUrl;
+    private string? _url;
+    private bool _allowUnencryptedHttp;
+    private string? _hostname;
+    private string? _currentBearerToken;
+    private DateTime? _currentBearerTokenExpiration;
+
+    public FeatrixCaller(bool debug, string clientId, string clientSecret, bool allowUnencryptedHttp, string? sourceUrl = null) {
+        Requires.NotDefaultOrEmptyOrWhitepsace(nameof(clientId), clientId);
+        Requires.NotDefaultOrEmptyOrWhitepsace(nameof(clientSecret), clientSecret);
+        this._sourceUrl = sourceUrl ?? DEFAULT_URL;
+        this._allowUnencryptedHttp = allowUnencryptedHttp;
+        this._clientId = clientId;
+        this._clientSecret = clientSecret;
+        this._debug = debug;
     }
 
-    public class FeatrixBadApiKeyError : Exception
-    {
-        public FeatrixBadApiKeyError(string message) : base(message) { }
+    public HttpClient HttpClient { get; } = new ();
+
+    public string Url { 
+        get {
+            if(!this._hasInit)
+                throw new InvalidOperationException("attempt to access before init");
+            return this._url!;
+        }
+        set {
+            this._url = value;
+        }
     }
 
-    public class Featrix
+    public async Task InitAsync() {
+        if(this._hasInit)
+            throw new InvalidOperationException("attemp to re-init");
+        
+        _hostname = Dns.GetHostName();
+        Url = CreateUrl(this._sourceUrl, this._allowUnencryptedHttp);
+        await GenerateBearerTokenAsync();
+        this._hasInit = true;
+    }
+
+    public async Task<Dictionary<string, string>> GetHeadersAsync(bool bearerGenerate = false, bool jsonRequest = false, Dictionary<string, string>? extra = null)
     {
-        private string _url;
-        private string _clientId;
-        private string _clientSecret;
-        private string _hostname;
-        private string _currentBearerToken;
-        private DateTime? _currentBearerTokenExpiration;
-        private bool _debug;
+        var headers = new Dictionary<string, string>();
 
-        private static readonly HttpClient httpClient = new HttpClient();
-
-        public Featrix(
-            string url = "https://app.featrix.com",
-            string clientId = null,
-            string clientSecret = null,
-            bool allowUnencryptedHttp = false,
-            bool debug = false
-        )
+        if (jsonRequest)
         {
-            _debug = debug;
-            _clientId = clientId;
-            _clientSecret = clientSecret;
-            _url = ValidateUrl(url, allowUnencryptedHttp);
-            _hostname = Dns.GetHostName();
-            GenerateBearerTokenAsync().Wait();
+            headers.Add("Content-Type", "application/json");
+            headers.Add("Accept", "text/plain");
+            headers.Add("X-request-id", Guid.NewGuid().ToString());
+            headers.Add("X-hostname", _hostname!);
+        }
+
+        if (extra != null)
+        {
+            foreach (var entry in extra)
+            {
+                headers[entry.Key] = entry.Value;
+            }
+        }
+
+        if (!bearerGenerate)
+        {
+            if (_currentBearerToken == null || (_currentBearerTokenExpiration.HasValue && _currentBearerTokenExpiration < DateTime.Now))
+            {
+                await GenerateBearerTokenAsync();
+            }
 
             if (_currentBearerToken == null)
             {
-                throw new Exception("Your client id and client secret pair are invalid.");
+                throw new FeatrixBadApiKeyError("Your ApiKey seems to have been invalidated, please create another one");
             }
+
+            headers["Authorization"] = $"Bearer {_currentBearerToken}";
         }
 
-        private async Task GenerateBearerTokenAsync()
+        return headers;
+    }
+
+    private static string CreateUrl(string sourceUrl, bool allowUnencryptedHttp)
+    {
+        if (string.IsNullOrEmpty(sourceUrl))
+            throw new Exception($"url argument must be in the form of http${(allowUnencryptedHttp ? "" : "s")}://host:port");
+        sourceUrl = sourceUrl.TrimEnd('/');
+        ValidateUrlScheme(sourceUrl, allowUnencryptedHttp);
+        return $"{sourceUrl}/api";
+    }
+
+    private static void ValidateUrlScheme(string url, bool allowUnencryptedHttp)
+    {
+        if (!url.StartsWith("http://") && !url.StartsWith("https://"))
         {
-            if (_debug)
+            throw new ArgumentException("url argument must be in the form of https://host:port");
+        }
+        else if (url.StartsWith("http://"))
+        {
+            ValidateLocalhostUrl(url, allowUnencryptedHttp);
+        }
+    }
+
+    private static void ValidateLocalhostUrl(string url, bool allowUnencryptedHttp)
+    {
+        if (!allowUnencryptedHttp)
+        {
+            var localhostPrefixes = new[] { "localhost", "127.0.0.1", "::1" };
+            foreach (var lh in localhostPrefixes)
             {
-                Console.WriteLine("_generate_bearer_token entered");
+                if (url == $"http://{lh}" || url.StartsWith($"http://{lh}/") || url.StartsWith($"http://{lh}:"))
+                {
+                    return;
+                }
             }
 
-            var headers = FeatrixHeaders(bearerGenerate: true);
+            throw new ArgumentException("Non-HTTPS only supported for localhost without setting `allow_unencrypted_http`");
+        }
+    }
 
+    private async Task GenerateBearerTokenAsync()
+    {
+        if (this._debug)
+        {
+            Console.WriteLine("_generate_bearer_token entered");
+        }
+
+        var headers = await this.GetHeadersAsync(bearerGenerate: true);
+
+        var payload = JsonSerializer.Serialize(new
+        {
+            client_id = this._clientId,
+            client_secret = this._clientSecret
+        });
+
+        var response = await this.HttpClient.PostAsync($"{Url}/mosaic/keyauth/jwt", new StringContent(payload, Encoding.UTF8, "application/json"));
+
+        if (response.IsSuccessStatusCode)
+        {
+            var body = JsonSerializer.Deserialize<Dictionary<string, string>>(await response.Content.ReadAsStringAsync());
+            if(body == null)
+                throw new FeatrixBadApiKeyError("body was unable to deserialize");
+            
+            if(!DateTime.TryParse(body["expiration"], out var currentBearerTokenExpiration))
+                throw new FeatrixBadApiKeyError("Failed to parse expiration DateTime");
+
+            this._currentBearerToken = body["jwt"];
+            this._currentBearerTokenExpiration = currentBearerTokenExpiration;
+
+            if (this._debug)
+            {
+                Console.WriteLine("bearer looks good");
+            }
+        }
+        else
+        {
+            throw new FeatrixBadApiKeyError($"Failed to create authorization token from API Key: {response.StatusCode}. Are your client id and client secret correct?");
+        }
+    }
+}
+
+public class Featrix
+{
+    private bool _debug;
+    private readonly FeatrixCaller _caller;
+
+    public async static Task<Featrix> CreateAsync(string clientId, string clientSecret, string? url = null, bool allowUnencryptedHttp = false, bool debug = false) {        
+        var caller = new FeatrixCaller(debug, clientId, clientSecret, allowUnencryptedHttp, url);
+        await caller.InitAsync();
+        return new Featrix(debug, caller);
+    }
+
+    private Featrix(bool debug, FeatrixCaller caller)
+    {
+        this._debug = debug;
+        this._caller = caller;
+    }
+
+    public async Task<Dictionary<string, object>> PredictAsync(string neuralFunctionId, List<Dictionary<string, object>> query)
+    {
+        var url = $"{this._caller.Url}/neural/models/prediction";
+        var headers = await this._caller.GetHeadersAsync();
+
+        if (_debug)
+        {
+            Console.WriteLine($"HTTP: {url}");
+            Console.WriteLine($"headers: {string.Join(", ", headers)}");
+        }
+
+        try
+        {
             var payload = JsonSerializer.Serialize(new
             {
-                client_id = _clientId,
-                client_secret = _clientSecret
+                job_type = "model-prediction",
+                model_id = neuralFunctionId,
+                query = query
             });
 
-            var response = await httpClient.PostAsync($"{_url}/mosaic/keyauth/jwt", new StringContent(payload, Encoding.UTF8, "application/json"));
-
-            if (response.IsSuccessStatusCode)
+            var request = new HttpRequestMessage(HttpMethod.Post, url)
             {
-                var body = JsonSerializer.Deserialize<Dictionary<string, string>>(await response.Content.ReadAsStringAsync());
-                _currentBearerToken = body["jwt"];
-                _currentBearerTokenExpiration = DateTime.Parse(body["expiration"]);
+                Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            };
 
-                if (_debug)
-                {
-                    Console.WriteLine("bearer looks good");
-                }
-            }
-            else
+            foreach (var header in headers)
             {
-                throw new FeatrixBadApiKeyError($"Failed to create authorization token from API Key: {response.StatusCode}. Are your client id and client secret correct?");
-            }
-        }
-
-        private Dictionary<string, string> FeatrixHeaders(bool bearerGenerate = false, bool jsonRequest = false, Dictionary<string, string> extra = null)
-        {
-            var headers = new Dictionary<string, string>();
-
-            if (jsonRequest)
-            {
-                headers.Add("Content-Type", "application/json");
-                headers.Add("Accept", "text/plain");
-                headers.Add("X-request-id", Guid.NewGuid().ToString());
-                headers.Add("X-hostname", _hostname);
+                request.Headers.Add(header.Key, header.Value);
             }
 
-            if (extra != null)
-            {
-                foreach (var entry in extra)
-                {
-                    headers[entry.Key] = entry.Value;
-                }
-            }
-
-            if (!bearerGenerate)
-            {
-                if (_currentBearerToken == null || (_currentBearerTokenExpiration.HasValue && _currentBearerTokenExpiration < DateTime.Now))
-                {
-                    GenerateBearerTokenAsync().Wait();
-                }
-
-                if (_currentBearerToken == null)
-                {
-                    throw new FeatrixBadApiKeyError("Your ApiKey seems to have been invalidated, please create another one");
-                }
-
-                headers["Authorization"] = $"Bearer {_currentBearerToken}";
-            }
-
-            return headers;
-        }
-
-        private string ValidateUrl(string url, bool allowUnencryptedHttp)
-        {
-            if (string.IsNullOrEmpty(url))
-            {
-                throw new Exception("url argument must be in the form of https://host:port");
-            }
-
-            url = url.TrimEnd('/');
-            ValidateUrlScheme(url, allowUnencryptedHttp);
-            return $"{url}/api";
-        }
-
-        private void ValidateUrlScheme(string url, bool allowUnencryptedHttp)
-        {
-            if (!url.StartsWith("http://") && !url.StartsWith("https://"))
-            {
-                throw new Exception("url argument must be in the form of https://host:port");
-            }
-            else if (url.StartsWith("http://"))
-            {
-                ValidateLocalhostUrl(url, allowUnencryptedHttp);
-            }
-        }
-
-        private void ValidateLocalhostUrl(string url, bool allowUnencryptedHttp)
-        {
-            if (!allowUnencryptedHttp)
-            {
-                var localhostPrefixes = new[] { "localhost", "127.0.0.1", "::1" };
-                foreach (var lh in localhostPrefixes)
-                {
-                    if (url == $"http://{lh}" || url.StartsWith($"http://{lh}/") || url.StartsWith($"http://{lh}:"))
-                    {
-                        return;
-                    }
-                }
-
-                throw new Exception("Non-HTTPS only supported for localhost without setting `allow_unencrypted_http`");
-            }
-        }
-
-        public async Task<Dictionary<string, object>> PredictAsync(string neuralFunctionId, List<Dictionary<string, object>> query)
-        {
-            var url = $"{_url}/neural/models/prediction";
-            var headers = FeatrixHeaders();
-
+            var httpResponse = await this._caller.HttpClient.SendAsync(request);
             if (_debug)
             {
-                Console.WriteLine($"HTTP: {url}");
-                Console.WriteLine($"headers: {string.Join(", ", headers)}");
+                Console.WriteLine($"Response status: {httpResponse.StatusCode}");
             }
 
-            try
+            var response = JsonSerializer.Deserialize<Dictionary<string, object>>(await httpResponse.Content.ReadAsStringAsync());
+            if(response == null) {
+                throw new FeatrixConnectionError(url, "Unable to deserialize response into a dictionary");
+            }
+
+            return response;
+        }
+        catch (HttpRequestException e)
+        {
+            if (_debug)
             {
-                var payload = JsonSerializer.Serialize(new
-                {
-                    job_type = "model-prediction",
-                    model_id = neuralFunctionId,
-                    query = query
-                });
-
-                var request = new HttpRequestMessage(HttpMethod.Post, url)
-                {
-                    Content = new StringContent(payload, Encoding.UTF8, "application/json")
-                };
-
-                foreach (var header in headers)
-                {
-                    request.Headers.Add(header.Key, header.Value);
-                }
-
-                var response = await httpClient.SendAsync(request);
-                if (_debug)
-                {
-                    Console.WriteLine($"Response status: {response.StatusCode}");
-                }
-
-                var responseBody = await response.Content.ReadAsStringAsync();
-                return JsonSerializer.Deserialize<Dictionary<string, object>>(responseBody);
+                Console.WriteLine($"Response exception: {e.Message}");
             }
-            catch (HttpRequestException e)
-            {
-                if (_debug)
-                {
-                    Console.WriteLine($"Response exception: {e.Message}");
-                }
-                throw new FeatrixConnectionError(url, e.Message);
-            }
+            throw new FeatrixConnectionError(url, e.Message, e);
         }
     }
 }
