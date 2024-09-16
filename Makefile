@@ -1,7 +1,7 @@
 -include .env
 .EXPORT_ALL_VARIABLES:
 TOP                     := $(CURDIR)
-PYTHON_SRC              := $(TOP)/src/python
+PYTHON_SRC              := $(TOP)/python
 DIST                    := $(PYTHON_SRC)/dist
 # Docs
 SPHINXOPTS    			?=
