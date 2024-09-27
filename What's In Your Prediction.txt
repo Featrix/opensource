@@ -1,0 +1,89 @@
+#     Welcome to...
+#
+#      _______ _______ _______ _______ ______ _______ ___ ___
+#     |    ___|    ___|   _   |_     _|   __ \_     _|   |   |
+#     |    ___|    ___|       | |   | |      <_|   |_|-     -|
+#     |___|   |_______|___|___| |___| |___|__|_______|___|___|
+#
+#                                 What's in *your* prediction?
+#
+# Every Featrix prediction returns is a JSON structure that includes:
+# 
+#   1. An ID to update Featrix on the ground truth if you discover the truth later.
+#   2. An echo of your query to verify the query is what you expect.
+#   3. Details on what Featrix actually processed and what, if anything, was ignored.
+#   4. The actual prediction results (classification with probabilities or regression).
+#   5. Safety information related to your query, based on the model's knowledge.
+#   6. Metadata for fully reproducing the prediction and linking it to specific 
+#      artifacts, whether they are Featrix artifacts or third party embedding models 
+#      mixed with Featrix embeddings.
+
+{
+    prediction_featrix_id: "....",                  # call a feedback API later with
+                                                    # the ground truth if you'd like
+    prediction_time: "Thu Sep 26 18:17:52 2024",    # the time the query ran.
+    
+    original_query: {                               # your original input query
+        numerical_input_1: 2,                       # dictionary of column: <value> pairs
+    },
+
+    actual_query: {                                 # if you specified a column not
+        ...                                         # present in the model, your query may
+    },                                              # be reduced before execution.
+                                                    
+    ignored_query_columns: [                        # for emphasis, we let you know
+        ...                                         # which parts of the original query
+    ],                                              # were ignored.
+                                                    
+    results: {                                      # your actual prediction: classifier
+        cat_value_1: "0.25",                        # with probability or a regression.
+        ...
+    },
+
+    column_guardrails: [                            # notes if any column in the query was
+        { numerical_input_1: "within 1 stdev" },    # pushing the limit of the training data
+        { numerical_input_2: ">3 stdevs" }, 
+        ...        
+    ], 
+   
+    cross_column_guardrails_score: [                # a cross-column score for how far out
+        0 to 1                                      # of training the query was, when considered
+    ],                                              # against all the columns queried.
+   
+    nearest_neighbors_in_training_data: [           # if security policy allows, we return
+        { ...row 234 },                             # nearest neighbors in the training space
+        { ...row 645 }, ...                         # for human evaluation of the result.
+    ],
+    
+    upstream_embedding_models: {                    # metadata of upstream models used.
+        col1:  "sentence-all-MiniLM-L12-v1",        # these might be other models you made 
+        col6:  "featrix-upstream-52b43b29",         # with Featrix or embedding models
+        col12: "openai-text-embedding-3-large"      # from third parties.
+    }
+    
+    featrix_model: {                                # the neural function (model)
+        model_featrix_id: "...",                    # the Featrix id for this model
+        model_hash: "...",                          # the hash to identify a specific artifact
+                                                    # in the Featrix system that ran this prediction
+        model_train_time: "...",                    # when this model was last trained
+        model_train_loops: 500,                     # how many passes were made over the data
+        model_train_featrix_version: "1.2",         # the Featrix version that trained this model.
+        model_predict_featrix_version: "1.2",       # the Featrix version that ran this model.
+        model_metrics: {                            # metrics from the validation set on this model
+            f1: 0.75                                # MSE, loss, accuracy, precision, recall, et al.
+        }
+    },
+    
+    featrix_embedding_space: {                      # the Featrix embedding space information
+        embedding_space_featrix_id: "...",          # the Featrix id for this embedding space
+        embedding_space_hash: "...",                # the hash to identify a specific artifact
+        embedding_space_train_time: "...",          # when this model was last trained
+        embedding_space_train_loops: 500,           # how many passes were made over the data
+        embedding_space_featrix_version: "1.2",     # the Featrix version that trained this model.
+        embedding_space_run_featrix_version: "1.2", # the Featrix version that ran this model.        
+    }
+}
+
+# Learn more at www.featrix.ai
+
+
