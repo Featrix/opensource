@@ -146,9 +146,17 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         self._fc = value
 
     def refresh(self):
+        """
+        Refreshes the object specified by the id on this object, and returns a new object.
+
+        In other words, use this by saying:  es = es.refresh()        
+        """
         return self.by_id(self.id, self.fc)
 
     def ready(self):
+        """
+        Returns True if the embedding space has finished training and is ready for work.
+        """
         return self.training_state == TrainingState.COMPLETED
 
     @staticmethod
