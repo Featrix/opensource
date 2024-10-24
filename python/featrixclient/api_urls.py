@@ -234,7 +234,7 @@ class ApiInfo(BaseModel):
     job_fast_encode_records: Api = Api(
         "/neural/embedding_space/fast-encode-records",
         EncodeRecordsArgs,
-        JobDispatch,
+        Any,
         False,  # this only matters if the response type is a Model (pydantic) - here we just get a list of dicts
     )
     # job_es_create_db: Api = Api(
@@ -277,6 +277,9 @@ class ApiInfo(BaseModel):
         api = ApiInfo().get(api_name)
         if api.response_type is None:
             return None
+        if api.response_type == Any:
+            return response_object
+        
         if issubclass(api.response_type, BaseModel):
             try:
                 if api.list_response:
@@ -293,10 +296,12 @@ class ApiInfo(BaseModel):
                     )
                     return api.response_type.model_validate(ro)
             except pydantic.ValidationError as e:
-                warnings.warn(f"Invalid response, report this as a bug: {e}")
-                ApiInfo.dump_validation_error_details(
-                    e, response_object, api.response_type
-                )
+                print("@@@ response_object = ", response_object)
+                warnings.warn(f"Invalid response: it is possible you need a newer client: {e}")
+                # ApiInfo.dump_validation_error_details(
+                #     e, response_object, api.response_type
+                # )
+                return response_object
         if not isinstance(response_object, api.response_type):
             return api.response_type(response_object)  # noqa -- will be a base type like int, float, etc
         return response_object

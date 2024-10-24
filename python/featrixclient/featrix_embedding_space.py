@@ -407,10 +407,11 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         result = self._fc.api.op("es_delete", embedding_space_id=str(self.id))
         return ApiInfo.reclass(FeatrixEmbeddingSpace, result, fc=self._fc)
 
-    def embed_record(self, upload: pd.DataFrame | str | Path) -> List[Dict]:
+    def embed_record(self, input : pd.DataFrame | List[Dict] | dict ) -> List[Dict]:
         """
         Use this trained embedding space to create embeddings for rows of data.
         The rows may be in or out of the training set.
+
         You can use the resulting vector embeddings to train your own models
         outside of Featrix, to cluster data items with the relationships that
         created the embedding transformation on the training data--this is often
@@ -421,14 +422,15 @@ class FeatrixEmbeddingSpace(EmbeddingSpace):
         """
         from featrixclient.models.job_requests import EncodeRecordsArgs
 
-        if isinstance(upload, pd.DataFrame):
-            records = upload.to_dict(orient="records")
-        else:
-            path = Path(upload)
-            if not path.exists():
-                raise FeatrixException(f"File {path} does not exist")
-            df = featrix_wrap_pd_read_csv(path)
-            records = df.to_dict(orient="records")
+        if isinstance(input, pd.DataFrame):
+            records = input.to_dict(orient="records")
+        elif isinstance(input, dict):
+            records = [input]
+        elif isinstance(input, list):
+            if len(input) > 0:
+                assert isinstance(input[0], dict), "When passing a list, we expect a list of dictionaries"
+            records = input
+
         encode_args = EncodeRecordsArgs(
             project_id=str(self.project_id),
             embedding_space_id=str(self.id),
