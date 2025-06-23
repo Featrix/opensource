@@ -1,10 +1,8 @@
-# featrixclient
+# 🚀 Featrix Sphere API Client
      _______ _______ _______ _______ ______ _______ ___ ___
     |    ___|    ___|   _   |_     _|   __ \_     _|   |   |
     |    ___|    ___|       | |   | |      <_|   |_|-     -|
     |___|   |_______|___|___| |___| |___|__|_______|___|___|
-
-# 🚀 Featrix Sphere API Client
 
 **Transform any CSV into a production-ready ML model in minutes, not months.**
 
