@@ -353,4 +353,4 @@ It's cool if you have one though. And we'd love to hear about your thesis!
 
 ### Questions?
 
-Drop us a note at support@featrix.ai
+Drop us a note at hello@featrix.ai
